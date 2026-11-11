@@ -38,6 +38,9 @@
 
   /* ── Navigation ── */
   function go(roomId) {
+    document.body.style.transition = 'opacity 0.2s ease';
+    document.body.style.opacity = '0.6';
+    document.body.style.pointerEvents = 'none';
     window.location.href = '/room.html?id=' + encodeURIComponent(roomId);
   }
 
@@ -95,11 +98,17 @@
   let createdRoomId = null;
 
   $('btn-create').addEventListener('click', () => {
+    $('btn-create').disabled = true;
+    $('btn-create').textContent = 'Creating room…';
+
     socket.emit('create-room', {
       profile,
       name:     $('create-name').value.trim() || `${profile.name}'s room`,
       isPublic: $('create-public').checked
     }, res => {
+      $('btn-create').disabled = false;
+      $('btn-create').textContent = 'Create room & get ID';
+
       if (!res || !res.ok) {
         toast('Could not create room.');
         return;
@@ -127,7 +136,11 @@
   });
 
   $('btn-enter-room') && $('btn-enter-room').addEventListener('click', () => {
-    if (createdRoomId) go(createdRoomId);
+    if (createdRoomId) {
+      $('btn-enter-room').disabled = true;
+      $('btn-enter-room').textContent = 'Entering…';
+      go(createdRoomId);
+    }
   });
 
   $('btn-delete-room') && $('btn-delete-room').addEventListener('click', async () => {

@@ -358,6 +358,10 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('leave-room', () => {
+    leaveCurrentRoom();
+  });
+
   socket.on('disconnect', () => {
     const qi = matchQueue.findIndex((e) => e.socketId === socket.id);
     if (qi !== -1) matchQueue.splice(qi, 1);

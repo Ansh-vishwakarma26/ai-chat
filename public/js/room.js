@@ -1,5 +1,7 @@
 /* StudyHub room: WebRTC mesh (max 8), chat sidebar, AI tutor sidebar */
 (function () {
+  'use strict';
+
   const $ = (id) => document.getElementById(id);
   const params = new URLSearchParams(window.location.search);
   const roomId = (params.get('id') || '').trim().toUpperCase();
@@ -19,20 +21,30 @@
   const pcs = new Map();          // peer socketId -> RTCPeerConnection
   const remoteStreams = new Map();// peer socketId -> MediaStream
   const mutedByMe = new Set();    // peers whose audio I silenced locally
-  const peerMeta = new Map();     // peer socketId -> { name, language, country }
+  const peerMeta = new Map();     // peer socketId -> { name, language, country, avatar }
   let myId = null;
   let localStream = null;
   let micOn = profile.defaultMic !== 'off';
   let camOn = profile.defaultCam !== false;
   let allOthersMuted = false;
+  let unreadChatCount = 0;
 
   /* ================= UI helpers ================= */
   function toast(msg, ms = 2500) {
     const t = $('toast');
+    if (!t) return;
     t.textContent = msg;
     t.classList.remove('hidden');
     clearTimeout(toast._t);
     toast._t = setTimeout(() => t.classList.add('hidden'), ms);
+  }
+
+  function hideLoader() {
+    const loader = $('room-loader');
+    if (loader && !loader.classList.contains('fade-out')) {
+      loader.classList.add('fade-out');
+      setTimeout(() => { loader.style.display = 'none'; }, 400);
+    }
   }
 
   function addMessage(container, { who, text, cls }) {
@@ -52,30 +64,144 @@
     container.scrollTop = container.scrollHeight;
   }
 
-  /* ================= Media ================= */
+  /* ================= In-room Chat Notifications ================= */
+  function showChatNotification(msg) {
+    const container = $('chat-notify-container');
+    if (!container) return;
+
+    // Increment badge if chat is hidden
+    const chatPanel = $('chat-panel');
+    if (chatPanel && chatPanel.classList.contains('hidden')) {
+      unreadChatCount++;
+      updateChatBadge();
+    }
+
+    // Floating notification pill
+    const pill = document.createElement('div');
+    pill.className = 'chat-notify-pill';
+
+    const av = (window.getStudyAvatar && window.getStudyAvatar(msg.avatar)) || { svg: '💬' };
+    pill.innerHTML = `
+      <div class="chat-notify-av">${av.svg}</div>
+      <div class="chat-notify-content">
+        <span class="chat-notify-name">${escapeHtml(msg.name)}</span>
+        <span class="chat-notify-msg">${escapeHtml(msg.text)}</span>
+      </div>
+    `;
+
+    pill.addEventListener('click', () => {
+      openChat();
+      pill.remove();
+    });
+
+    container.appendChild(pill);
+
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+      pill.style.opacity = '0';
+      pill.style.transform = 'translateY(-8px) scale(0.95)';
+      setTimeout(() => pill.remove(), 250);
+    }, 4000);
+  }
+
+  function updateChatBadge() {
+    const btn = $('toggle-chat');
+    if (!btn) return;
+    const existing = btn.querySelector('.chat-unread-badge');
+    if (unreadChatCount > 0) {
+      if (existing) {
+        existing.textContent = unreadChatCount > 9 ? '9+' : unreadChatCount;
+      } else {
+        const badge = document.createElement('span');
+        badge.className = 'chat-unread-badge';
+        badge.textContent = unreadChatCount > 9 ? '9+' : unreadChatCount;
+        btn.appendChild(badge);
+      }
+    } else if (existing) {
+      existing.remove();
+    }
+  }
+
+  function openChat() {
+    const cp = $('chat-panel');
+    if (cp) cp.classList.remove('hidden');
+    $('ai-panel').classList.add('hidden');
+    unreadChatCount = 0;
+    updateChatBadge();
+    const msgs = $('chat-messages');
+    if (msgs) msgs.scrollTop = msgs.scrollHeight;
+    const inp = $('chat-input');
+    if (inp) inp.focus();
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  /* ================= Media with Anti-Echo & Noise Suppression ================= */
   async function initMedia() {
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localStream = await navigator.mediaDevices.getUserMedia({
+        video: camOn ? {
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+          facingMode: 'user',
+          frameRate: { ideal: 24, max: 30 }
+        } : false,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 48000
+        }
+      });
     } catch (err) {
-      toast('Camera/mic unavailable — joining in view-only mode.');
-      localStream = new MediaStream();
-      micOn = false;
-      camOn = false;
-      $('mic-btn').textContent = '🎤 Mic off';
-      $('mic-btn').classList.remove('on');
-      $('cam-btn').textContent = '📷 Cam off';
-      $('cam-btn').classList.remove('on');
+      // If combined request fails (e.g. no camera attached), fallback gracefully
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: false,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
+        camOn = false;
+        toast('Camera not detected — joining with audio only.');
+      } catch (audioErr) {
+        toast('Camera/mic unavailable — joining in spectator mode.');
+        localStream = new MediaStream();
+        micOn = false;
+        camOn = false;
+      }
     }
-    if (localStream.getAudioTracks().length) localStream.getAudioTracks().forEach((t) => { t.enabled = micOn; });
-    if (localStream.getVideoTracks().length) localStream.getVideoTracks().forEach((t) => { t.enabled = camOn; });
+
+    if (localStream.getAudioTracks().length) {
+      localStream.getAudioTracks().forEach((t) => { t.enabled = micOn; });
+    }
+    if (localStream.getVideoTracks().length) {
+      localStream.getVideoTracks().forEach((t) => { t.enabled = camOn; });
+    }
+
+    // Add local tile with muted audio to eliminate echo loopback
     addTile(myId, profile.name, profile.language, true, profile.avatar);
     attachStream(myId, localStream);
     setTileCam(myId, camOn);
     setTileMic(myId, micOn);
-    $('mic-btn').textContent = micOn ? '🎤 Mic on' : '🎤 Mic off';
+
+    $('mic-btn').innerHTML = micOn ? '🎤 Mic on' : '🎤 Mic off';
     $('mic-btn').classList.toggle('on', micOn);
-    $('cam-btn').textContent = camOn ? '📷 Cam on' : '📷 Cam off';
+    $('cam-btn').innerHTML = camOn ? '📷 Cam on' : '📷 Cam off';
     $('cam-btn').classList.toggle('on', camOn);
+
+    // Fade out the connecting loader
+    hideLoader();
+
+    // Attach tracks to existing peer connections if any arrived first
+    pcs.forEach((pc) => {
+      localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+    });
   }
 
   /* ================= Tiles ================= */
@@ -90,14 +216,24 @@
     video.id = 'video-' + id;
     video.autoplay = true;
     video.playsInline = true;
-    if (isMe) video.muted = true;
+
+    // Strict echo prevention: local video MUST be muted!
+    if (isMe) {
+      video.muted = true;
+      video.defaultMuted = true;
+      video.volume = 0;
+    }
 
     const label = document.createElement('div');
     label.className = 'label';
     label.innerHTML = `<span class="av"></span><span class="nm"></span>` + (language && language !== 'Any' ? `<span class="lang"></span>` : '');
     const avEl = label.querySelector('.av');
     avEl.style.cssText = 'width:20px;height:20px;display:inline-flex;border-radius:6px;overflow:hidden;vertical-align:middle;margin-right:6px;flex-shrink:0;';
-    if (window.getStudyAvatarSvg) { avEl.innerHTML = window.getStudyAvatarSvg(avId); } else { avEl.textContent = '🧑‍🎓'; }
+    if (window.getStudyAvatarSvg) {
+      avEl.innerHTML = window.getStudyAvatarSvg(avId);
+    } else {
+      avEl.textContent = '🧑‍🎓';
+    }
     label.querySelector('.nm').textContent = name + (isMe ? ' (you)' : '');
     const langEl = label.querySelector('.lang');
     if (langEl) langEl.textContent = language;
@@ -110,7 +246,7 @@
       actions.className = 'actions';
       const muteBtn = document.createElement('button');
       muteBtn.textContent = '🔇';
-      muteBtn.title = 'Mute this person for you only (they can still hear others)';
+      muteBtn.title = 'Mute this person for you only';
       muteBtn.addEventListener('click', () => toggleMuteForMe(id, muteBtn));
       actions.appendChild(muteBtn);
       tile.appendChild(actions);
@@ -122,7 +258,10 @@
 
   function removeTile(id) {
     const pc = pcs.get(id);
-    if (pc) { pc.close(); pcs.delete(id); }
+    if (pc) {
+      pc.close();
+      pcs.delete(id);
+    }
     remoteStreams.delete(id);
     mutedByMe.delete(id);
     peerMeta.delete(id);
@@ -133,6 +272,7 @@
 
   function updateGridCount() {
     const grid = $('video-grid');
+    if (!grid) return;
     grid.setAttribute('data-count', String(grid.children.length));
     $('participant-count').textContent = `${grid.children.length}/${MAX_PARTICIPANTS} studying`;
   }
@@ -141,6 +281,17 @@
     const video = $('video-' + id);
     if (!video) return;
     video.srcObject = stream;
+
+    // Strict echo prevention: local audio never outputs to speakers
+    if (id === myId) {
+      video.muted = true;
+      video.defaultMuted = true;
+      video.volume = 0;
+    } else {
+      video.muted = false;
+      video.volume = 1;
+    }
+
     video.play().catch(() => {});
     applyMyMuteState(id);
   }
@@ -189,22 +340,38 @@
     toast(allOthersMuted ? 'All other participants muted for you.' : 'All participants unmuted for you.');
   });
 
-  /* ================= Own mic/cam ================= */
+  /* ================= Own mic/cam toggles ================= */
   $('mic-btn').addEventListener('click', () => {
     if (!localStream || !localStream.getAudioTracks().length) { toast('No microphone available.'); return; }
     micOn = !micOn;
     localStream.getAudioTracks().forEach((t) => { t.enabled = micOn; });
-    $('mic-btn').textContent = micOn ? '🎤 Mic on' : '🎤 Mic off';
+    $('mic-btn').innerHTML = micOn ? '🎤 Mic on' : '🎤 Mic off';
     $('mic-btn').classList.toggle('on', micOn);
     setTileMic(myId, micOn);
     socket.emit('media-state', { micOn, camOn });
   });
 
-  $('cam-btn').addEventListener('click', () => {
-    if (!localStream || !localStream.getVideoTracks().length) { toast('No camera available.'); return; }
+  $('cam-btn').addEventListener('click', async () => {
+    if (!localStream) { toast('Camera not initialized.'); return; }
+
     camOn = !camOn;
-    localStream.getVideoTracks().forEach((t) => { t.enabled = camOn; });
-    $('cam-btn').textContent = camOn ? '📷 Cam on' : '📷 Cam off';
+    if (camOn && !localStream.getVideoTracks().length) {
+      try {
+        const vStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
+        });
+        const vTrack = vStream.getVideoTracks()[0];
+        localStream.addTrack(vTrack);
+        pcs.forEach(pc => pc.addTrack(vTrack, localStream));
+      } catch {
+        camOn = false;
+        toast('Could not access camera.');
+      }
+    } else {
+      localStream.getVideoTracks().forEach((t) => { t.enabled = camOn; });
+    }
+
+    $('cam-btn').innerHTML = camOn ? '📷 Cam on' : '📷 Cam off';
     $('cam-btn').classList.toggle('on', camOn);
     setTileCam(myId, camOn);
     socket.emit('media-state', { micOn, camOn });
@@ -216,7 +383,9 @@
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     pcs.set(peerId, pc);
 
-    localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
+    if (localStream) {
+      localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
+    }
 
     pc.onicecandidate = (e) => {
       if (e.candidate) socket.emit('relay', { to: peerId, type: 'ice', data: e.candidate });
@@ -227,67 +396,76 @@
     };
     pc.onconnectionstatechange = () => {
       if (['failed', 'closed'].includes(pc.connectionState)) {
-        // keep tile; ICE may restart. Only clean up on peer-left.
+        // ICE will restart or peer-left will clean up
       }
     };
     return pc;
   }
 
   async function makeOffer(peerId) {
-    const pc = createPeer(peerId);
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    socket.emit('relay', { to: peerId, type: 'offer', data: pc.localDescription });
+    try {
+      const pc = createPeer(peerId);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      socket.emit('relay', { to: peerId, type: 'offer', data: pc.localDescription });
+    } catch (_) {}
   }
 
   socket.on('relay', async ({ from, type, data }) => {
-    if (!localStream) return;
-    if (type === 'offer') {
-      const pc = createPeer(from);
-      await pc.setRemoteDescription(new RTCSessionDescription(data));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      socket.emit('relay', { to: from, type: 'answer', data: pc.localDescription });
-    } else if (type === 'answer') {
-      const pc = pcs.get(from);
-      if (pc && pc.signalingState !== 'stable') {
+    try {
+      if (type === 'offer') {
+        const pc = createPeer(from);
         await pc.setRemoteDescription(new RTCSessionDescription(data));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('relay', { to: from, type: 'answer', data: pc.localDescription });
+      } else if (type === 'answer') {
+        const pc = pcs.get(from);
+        if (pc && pc.signalingState !== 'stable') {
+          await pc.setRemoteDescription(new RTCSessionDescription(data));
+        }
+      } else if (type === 'ice') {
+        const pc = pcs.get(from);
+        if (pc) await pc.addIceCandidate(new RTCIceCandidate(data)).catch(() => {});
       }
-    } else if (type === 'ice') {
-      const pc = pcs.get(from);
-      if (pc) await pc.addIceCandidate(new RTCIceCandidate(data)).catch(() => {});
-    }
+    } catch (_) {}
   });
 
-  /* ================= Room lifecycle ================= */
+  /* ================= Room lifecycle: Fast & Non-Blocking ================= */
   socket.on('connect', () => {
     myId = socket.id;
-    initMedia().then(() => {
-      socket.emit('join-room', { roomId, profile }, (res) => {
-        if (!res || !res.ok) {
-          alert((res && res.error) || 'Could not join room.');
-          window.location.href = '/home.html';
-          return;
-        }
-        $('room-code').textContent = roomId;
-        $('room-title').textContent = res.room.name || 'Study room';
-        document.title = `StudyHub — ${res.room.name || roomId}`;
-        for (const p of res.peers) {
-          peerMeta.set(p.id, p);
-          addTile(p.id, p.name, p.language, false, p.avatar);
-          setTileMic(p.id, p.micOn);
-          setTileCam(p.id, p.camOn);
-          makeOffer(p.id);
-        }
-        addMessage($('chat-messages'), { text: `You joined "${res.room.name}". Share ID ${roomId} to invite friends.`, cls: 'system' });
-      });
+
+    // Join room via socket immediately in parallel with camera warm-up
+    socket.emit('join-room', { roomId, profile }, (res) => {
+      if (!res || !res.ok) {
+        alert((res && res.error) || 'Could not join room.');
+        window.location.replace('/home.html');
+        return;
+      }
+
+      $('room-code').textContent = roomId;
+      $('room-title').textContent = res.room.name || 'Study room';
+      document.title = `StudyHub — ${res.room.name || roomId}`;
+
+      // Populate peers
+      for (const p of res.peers) {
+        peerMeta.set(p.id, p);
+        addTile(p.id, p.name, p.language, false, p.avatar);
+        setTileMic(p.id, p.micOn);
+        setTileCam(p.id, p.camOn);
+        makeOffer(p.id);
+      }
+      addMessage($('chat-messages'), { text: `You joined "${res.room.name}". Invite friends using ID: ${roomId}`, cls: 'system' });
     });
+
+    // Start media acquisition in parallel
+    initMedia();
   });
 
   socket.on('peer-joined', (p) => {
     peerMeta.set(p.id, p);
     addTile(p.id, p.name, p.language, false, p.avatar);
-    addMessage($('chat-messages'), { text: `${p.avatar || ''} ${p.name} joined the room.`, cls: 'system' });
+    addMessage($('chat-messages'), { text: `${p.name} joined the room.`, cls: 'system' });
   });
 
   socket.on('peer-left', ({ id }) => {
@@ -303,24 +481,68 @@
 
   socket.on('room-deleted', () => {
     alert('This study room has been closed or deleted.');
-    window.location.href = '/home.html';
+    fastLeave();
   });
 
+  /* Instant hardware release on leave */
+  function fastLeave() {
+    const btn = $('leave-btn');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Leaving…';
+    }
+
+    // 1. Instantly stop all hardware tracks to unblock page unload
+    if (localStream) {
+      localStream.getTracks().forEach((t) => {
+        try { t.stop(); t.enabled = false; } catch (_) {}
+      });
+    }
+
+    // 2. Tear down peer connections
+    pcs.forEach((pc) => {
+      try { pc.close(); } catch (_) {}
+    });
+    pcs.clear();
+
+    // 3. Notify socket server
+    try {
+      socket.emit('leave-room');
+      socket.disconnect();
+    } catch (_) {}
+
+    // 4. Instant navigation without browser hang
+    window.location.replace('/home.html');
+  }
+
+  $('leave-btn').addEventListener('click', fastLeave);
+
   window.addEventListener('beforeunload', () => {
+    if (localStream) {
+      localStream.getTracks().forEach((t) => {
+        try { t.stop(); } catch (_) {}
+      });
+    }
     pcs.forEach((pc) => pc.close());
-    if (localStream) localStream.getTracks().forEach((t) => t.stop());
+    socket.emit('leave-room');
   });
 
   /* ================= Chat ================= */
   $('toggle-chat').addEventListener('click', () => {
-    $('chat-panel').classList.toggle('hidden');
-    $('ai-panel').classList.add('hidden');
+    const isHidden = $('chat-panel').classList.contains('hidden');
+    if (isHidden) {
+      openChat();
+    } else {
+      $('chat-panel').classList.add('hidden');
+    }
   });
+
   $('toggle-ai').addEventListener('click', () => {
     $('ai-panel').classList.toggle('hidden');
     $('chat-panel').classList.add('hidden');
     if (!$('ai-panel').classList.contains('hidden')) $('ai-messages').scrollTop = $('ai-messages').scrollHeight;
   });
+
   document.querySelectorAll('.close-panel').forEach((btn) =>
     btn.addEventListener('click', () => $(btn.dataset.panel === 'chat' ? 'chat-panel' : 'ai-panel').classList.add('hidden'))
   );
@@ -328,10 +550,14 @@
   socket.on('chat-message', (msg) => {
     const mine = msg.from === myId;
     addMessage($('chat-messages'), {
-      who: mine ? `${profile.avatar || ''} You` : `${msg.avatar || ''} ${msg.name}`,
+      who: mine ? 'You' : msg.name,
       text: msg.text,
       cls: mine ? 'mine' : ''
     });
+
+    if (!mine) {
+      showChatNotification(msg);
+    }
   });
 
   $('chat-form').addEventListener('submit', (e) => {
@@ -351,11 +577,10 @@
         'give hints before full solutions, and keep responses short enough to read while studying.'
     }
   ];
-  let aiConfigured = null; // null = unknown yet
 
   addMessage($('ai-messages'), {
     who: 'AI Tutor',
-    text: 'Hi! Ask me anything about what you are studying — math, science, languages, exam prep. (The AI backend is not connected yet; the app owner will add their API key.)',
+    text: 'Hi! Ask me anything about what you are studying — math, science, languages, exam prep.',
     cls: 'ai'
   });
 
@@ -375,7 +600,6 @@
         body: JSON.stringify({ messages: aiHistory })
       });
       const data = await res.json();
-      if (aiConfigured === null) aiConfigured = !!data.configured;
       const reply = data.reply || data.error || 'Sorry, I could not answer that.';
       aiHistory.push({ role: 'assistant', content: reply });
       addMessage($('ai-messages'), { who: 'AI Tutor', text: reply, cls: 'ai' });
@@ -390,5 +614,4 @@
   $('room-code').addEventListener('click', () => {
     navigator.clipboard.writeText(roomId).then(() => toast('Room ID copied!')).catch(() => {});
   });
-  $('leave-btn').addEventListener('click', () => { window.location.href = '/home.html'; });
 })();

@@ -53,10 +53,12 @@
 
   function updatePreview(id) {
     const av = (window.getStudyAvatar && window.getStudyAvatar(id)) || AVATARS[0];
-    $('av-preview-icon').innerHTML = av.svg;
+    if ($('av-preview-icon')) $('av-preview-icon').innerHTML = av.svg;
     const name = $('login-name').value.trim() || 'Student';
-    $('av-preview-name').textContent = `${name} (${av.label})`;
-    $('av-preview-tag').textContent = av.tag || 'Study Persona';
+    if ($('av-preview-name')) $('av-preview-name').textContent = `${name} (${av.label})`;
+    if ($('av-preview-tag')) $('av-preview-tag').textContent = av.tag || 'Study Persona';
+    if ($('step1-avatar')) $('step1-avatar').innerHTML = av.svg;
+    if ($('step1-avatar-name')) $('step1-avatar-name').textContent = name ? `${name} • ${av.label}` : av.label;
   }
 
   AVATARS.forEach((av) => {
