@@ -2,6 +2,8 @@
 
 Group study rooms with live video calls for up to **8 people**.
 
+🌐 **[Live Website](https://studyhublive.vercel.app/)**
+
 ## Features
 
 - **Login page** — pick a name, avatar, study language, and country (stored only in your browser)
