@@ -31,9 +31,9 @@ const crypto = require('crypto');
  * Locally: put them in a `.env` file (gitignored) and `npm start`
  * loads it automatically. Deployed: set them in the app's settings.
  * ============================================================ */
-const AI_API_URL = process.env.AI_API_URL || '';
+const AI_API_URL = process.env.AI_API_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 const AI_API_KEY = process.env.AI_API_KEY || '';
-const AI_MODEL = process.env.AI_MODEL || '';
+const AI_MODEL = process.env.AI_MODEL || 'gemini-3.8-flash';
 
 const MAX_PARTICIPANTS = 8;
 const PORT = process.env.PORT || 3000;
@@ -194,14 +194,18 @@ app.post('/api/ai/chat', async (req, res) => {
 io.on('connection', (socket) => {
   let joinedRoomId = null;
 
-  const leaveCurrentRoom = () => {
+  const leaveCurrentRoom = (keepRoomId) => {
     if (!joinedRoomId) return;
     const room = rooms.get(joinedRoomId);
     if (room) {
       room.participants.delete(socket.id);
       socket.to(joinedRoomId).emit('peer-left', { id: socket.id });
-      if (room.participants.size === 0) rooms.delete(joinedRoomId);
+      // Keep the room alive when the same socket is about to rejoin it
+      if (room.participants.size === 0 && joinedRoomId !== keepRoomId) rooms.delete(joinedRoomId);
     }
+    // Leave the Socket.IO room too, otherwise this socket keeps receiving
+    // events (peer-joined, chat, relay) from the room it just left.
+    socket.leave(joinedRoomId);
     joinedRoomId = null;
   };
 
@@ -242,15 +246,32 @@ io.on('connection', (socket) => {
       if (typeof cb === 'function') cb({ ok: false, error: 'Room not found. Check the ID.' });
       return;
     }
-    if (room.participants.size >= MAX_PARTICIPANTS) {
-      if (typeof cb === 'function') cb({ ok: false, error: `Room is full (${MAX_PARTICIPANTS} participants max).` });
-      return;
+    const alreadyInRoom = joinedRoomId === roomId && room.participants.has(socket.id);
+    const clientId = String(p.clientId || '').slice(0, 64);
+    if (!alreadyInRoom) {
+      leaveCurrentRoom(roomId);
+      // A reconnect can arrive before the old socket's disconnect is detected.
+      // Replace the stale session from the same browser tab instead of
+      // counting it as an extra participant.
+      if (clientId) {
+        for (const [id, meta] of room.participants) {
+          if (id !== socket.id && meta.clientId === clientId) {
+            room.participants.delete(id);
+            socket.to(roomId).emit('peer-left', { id });
+            const stale = io.sockets.sockets.get(id);
+            if (stale) stale.leave(roomId);
+          }
+        }
+      }
+      if (room.participants.size >= MAX_PARTICIPANTS) {
+        if (typeof cb === 'function') cb({ ok: false, error: `Room is full (${MAX_PARTICIPANTS} participants max).` });
+        return;
+      }
     }
-    leaveCurrentRoom();
     const profile = sanitizeProfile(p.profile);
-    room.participants.set(socket.id, { ...profile, micOn: true, camOn: true });
+    room.participants.set(socket.id, { ...profile, clientId, micOn: true, camOn: true });
     joinedRoomId = roomId;
-    socket.join(roomId);
+    if (!alreadyInRoom) socket.join(roomId);
 
     const peers = [];
     for (const [id, meta] of room.participants) {

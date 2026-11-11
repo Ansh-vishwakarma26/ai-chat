@@ -10,6 +10,17 @@
   const profile = JSON.parse(localStorage.getItem('studyhub-profile') || 'null');
   if (!profile || !profile.name) { window.location.href = '/'; return; }
 
+  // Stable per-tab identity so a reconnect (new socket id) replaces the old
+  // session instead of showing up as a second participant.
+  const clientId = (() => {
+    let id = sessionStorage.getItem('studyhub-client-id');
+    if (!id) {
+      id = 'c_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      sessionStorage.setItem('studyhub-client-id', id);
+    }
+    return id;
+  })();
+
   const MAX_PARTICIPANTS = 8;
   const ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -22,6 +33,7 @@
   const remoteStreams = new Map();// peer socketId -> MediaStream
   const mutedByMe = new Set();    // peers whose audio I silenced locally
   const peerMeta = new Map();     // peer socketId -> { name, language, country, avatar }
+  const LOCAL_ID = 'local';       // stable id for my own tile (survives reconnects)
   let myId = null;
   let localStream = null;
   let micOn = profile.defaultMic !== 'off';
@@ -139,7 +151,17 @@
   }
 
   /* ================= Media with Anti-Echo & Noise Suppression ================= */
-  async function initMedia() {
+  let mediaPromise = null;
+
+  function initMedia() {
+    // Only request camera/mic once per page load, even if 'connect' fires again
+    if (!mediaPromise) mediaPromise = setupMedia();
+    return mediaPromise;
+  }
+
+  async function setupMedia() {
+    if (localStream) { hideLoader(); return; }
+
     try {
       localStream = await navigator.mediaDevices.getUserMedia({
         video: camOn ? {
@@ -185,10 +207,10 @@
     }
 
     // Add local tile with muted audio to eliminate echo loopback
-    addTile(myId, profile.name, profile.language, true, profile.avatar);
-    attachStream(myId, localStream);
-    setTileCam(myId, camOn);
-    setTileMic(myId, micOn);
+    addTile(LOCAL_ID, profile.name, profile.language, true, profile.avatar);
+    attachStream(LOCAL_ID, localStream);
+    setTileCam(LOCAL_ID, camOn);
+    setTileMic(LOCAL_ID, micOn);
 
     $('mic-btn').innerHTML = micOn ? '🎤 Mic on' : '🎤 Mic off';
     $('mic-btn').classList.toggle('on', micOn);
@@ -207,6 +229,8 @@
   /* ================= Tiles ================= */
   function addTile(id, name, language, isMe, avatar) {
     if (document.getElementById('tile-' + id)) return;
+    // Never allow more than one local "you" tile
+    if (isMe && document.getElementById('tile-' + LOCAL_ID)) return;
     const avId = avatar || (isMe ? profile.avatar : 'alex');
     const tile = document.createElement('div');
     tile.className = 'tile';
@@ -283,7 +307,7 @@
     video.srcObject = stream;
 
     // Strict echo prevention: local audio never outputs to speakers
-    if (id === myId) {
+    if (id === LOCAL_ID) {
       video.muted = true;
       video.defaultMuted = true;
       video.volume = 0;
@@ -347,7 +371,7 @@
     localStream.getAudioTracks().forEach((t) => { t.enabled = micOn; });
     $('mic-btn').innerHTML = micOn ? '🎤 Mic on' : '🎤 Mic off';
     $('mic-btn').classList.toggle('on', micOn);
-    setTileMic(myId, micOn);
+    setTileMic(LOCAL_ID, micOn);
     socket.emit('media-state', { micOn, camOn });
   });
 
@@ -373,7 +397,7 @@
 
     $('cam-btn').innerHTML = camOn ? '📷 Cam on' : '📷 Cam off';
     $('cam-btn').classList.toggle('on', camOn);
-    setTileCam(myId, camOn);
+    setTileCam(LOCAL_ID, camOn);
     socket.emit('media-state', { micOn, camOn });
   });
 
@@ -391,6 +415,10 @@
       if (e.candidate) socket.emit('relay', { to: peerId, type: 'ice', data: e.candidate });
     };
     pc.ontrack = (e) => {
+      if (!document.getElementById('tile-' + peerId)) {
+        const meta = peerMeta.get(peerId) || {};
+        addTile(peerId, meta.name || 'Participant', meta.language, false, meta.avatar);
+      }
       remoteStreams.set(peerId, e.streams[0]);
       attachStream(peerId, e.streams[0]);
     };
@@ -432,11 +460,32 @@
   });
 
   /* ================= Room lifecycle: Fast & Non-Blocking ================= */
+  // Socket.IO reconnects (network blip, phone backgrounded, tab restored) give
+  // us a brand-new socket id. Without this cleanup every reconnect would add
+  // another copy of my own video tile and stale peer tiles.
+  function resetPeerState() {
+    const grid = $('video-grid');
+    if (grid) {
+      Array.from(grid.children).forEach((tile) => {
+        if (tile.id !== 'tile-' + LOCAL_ID) tile.remove();
+      });
+    }
+    pcs.forEach((pc) => { try { pc.close(); } catch (_) {} });
+    pcs.clear();
+    remoteStreams.clear();
+    mutedByMe.clear();
+    peerMeta.clear();
+    updateGridCount();
+  }
+
   socket.on('connect', () => {
     myId = socket.id;
 
+    // Drop everything from the previous connection before rejoining
+    resetPeerState();
+
     // Join room via socket immediately in parallel with camera warm-up
-    socket.emit('join-room', { roomId, profile }, (res) => {
+    socket.emit('join-room', { roomId, profile, clientId }, (res) => {
       if (!res || !res.ok) {
         alert((res && res.error) || 'Could not join room.');
         window.location.replace('/home.html');
