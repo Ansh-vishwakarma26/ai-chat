@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "type": "app",
+      "name": "web",
+      "path": ".",
+      "routes": [
+        { "path": "/" }
+      ],
+      "port": 3000,
+      "serve": "server",
+      "runtime": "node",
+      "build": {
+        "context": ".",
+        "dockerfile": "deploy/docker/Dockerfile"
+      },
+      "dev": {
+        "startCommand": "node server.js"
+      },
+      "deploy": {
+        "startCommand": "node server.js"
+      }
+    }
+  ]
+}
