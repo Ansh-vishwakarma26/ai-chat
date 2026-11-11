@@ -4,59 +4,124 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>StudyHub — Room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
+  <script src="/js/avatars.js"></script>
 </head>
 <body class="room-body">
+
+  <!-- Top bar -->
   <header class="topbar room-topbar">
-    <div class="brand"><a href="/">📚 StudyHub</a></div>
+    <div class="brand">
+      <a href="/" style="display:flex;align-items:center;gap:8px">
+        <div class="brand-logo">📚</div>
+        StudyHub
+      </a>
+    </div>
+
     <div class="room-meta">
-      <span id="room-title"></span>
-      <span class="room-code" id="room-code" title="Click to copy"></span>
+      <span id="room-title" class="room-title-text"></span>
+      <span class="room-code" id="room-code" title="Click to copy room ID"></span>
       <span class="count" id="participant-count"></span>
     </div>
+
     <div class="side-toggles">
-      <button id="toggle-chat" class="btn small">💬 Chat</button>
-      <button id="toggle-ai" class="btn small">🤖 AI Tutor</button>
-      <button id="leave-btn" class="btn small danger">Leave</button>
+      <button id="toggle-chat" class="btn small">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        Chat
+      </button>
+      <button id="toggle-ai" class="btn small">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
+        </svg>
+        AI Tutor
+      </button>
+      <button id="leave-btn" class="btn small danger">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+        </svg>
+        Leave
+      </button>
     </div>
   </header>
 
+  <!-- Room layout -->
   <main class="room-layout">
     <section id="video-grid" class="video-grid"></section>
 
-    <aside id="chat-panel" class="side-panel hidden">
+    <!-- Chat panel -->
+    <aside id="chat-panel" class="side-panel hidden" role="complementary" aria-label="Room chat">
       <div class="panel-head">
-        <h3>💬 Room chat</h3>
-        <button class="btn small close-panel" data-panel="chat">✕</button>
+        <h3>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          Room Chat
+        </h3>
+        <button class="btn small close-panel" data-panel="chat" aria-label="Close chat">✕</button>
       </div>
-      <div id="chat-messages" class="chat-messages"></div>
+      <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-label="Chat messages"></div>
       <form id="chat-form" class="chat-form">
         <input id="chat-input" placeholder="Type a message…" maxlength="1000" autocomplete="off" />
-        <button class="btn primary" type="submit">Send</button>
+        <button class="btn primary" type="submit">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7z"/>
+          </svg>
+        </button>
       </form>
     </aside>
 
-    <aside id="ai-panel" class="side-panel hidden">
+    <!-- AI Tutor panel -->
+    <aside id="ai-panel" class="side-panel hidden" role="complementary" aria-label="AI Tutor">
       <div class="panel-head">
-        <h3>🤖 AI study tutor</h3>
-        <button class="btn small close-panel" data-panel="ai">✕</button>
+        <h3>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px">
+            <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
+          </svg>
+          AI Study Tutor
+        </h3>
+        <button class="btn small close-panel" data-panel="ai" aria-label="Close AI tutor">✕</button>
       </div>
-      <div id="ai-messages" class="chat-messages"></div>
+      <div id="ai-messages" class="chat-messages" role="log" aria-live="polite" aria-label="AI tutor messages"></div>
       <form id="ai-form" class="chat-form">
         <input id="ai-input" placeholder="Ask anything about your studies…" maxlength="1000" autocomplete="off" />
-        <button class="btn primary" type="submit" id="ai-send">Ask</button>
+        <button class="btn primary" type="submit" id="ai-send">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7z"/>
+          </svg>
+        </button>
       </form>
     </aside>
   </main>
 
+  <!-- Controls bar -->
   <footer class="controls">
-    <button id="mic-btn" class="btn control on" title="Toggle microphone">🎤 Mic on</button>
-    <button id="cam-btn" class="btn control on" title="Toggle camera">📷 Cam on</button>
-    <button id="mute-all-btn" class="btn control" title="Mute every remote participant for you only">🔇 Mute all others</button>
-    <span class="hint">Per-person mute buttons are on each video tile.</span>
+    <button id="mic-btn" class="btn control on" title="Toggle microphone (M)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/>
+      </svg>
+      Mic on
+    </button>
+    <button id="cam-btn" class="btn control on" title="Toggle camera (V)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+      </svg>
+      Cam on
+    </button>
+    <button id="mute-all-btn" class="btn control" title="Mute all remote participants for you only">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23M12 19v4M8 23h8"/>
+      </svg>
+      Mute all
+    </button>
+    <span class="hint">Per-person mute on each video tile</span>
   </footer>
 
-  <div id="toast" class="toast hidden"></div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/room.js"></script>

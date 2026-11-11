@@ -3,44 +3,467 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StudyHub — Login</title>
+  <title>StudyHub — Live Video Study Rooms</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..800;1,14..32,300..800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
+  <script src="/js/avatars.js"></script>
+  <style>
+    body.login-body {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      overflow-x: hidden;
+    }
+
+    /* ── Left side: Editorial hero branding ── */
+    .login-left {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 56px 64px;
+      background: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.15), transparent 45%),
+                  radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.12), transparent 40%),
+                  #0c0d14;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 2;
+    }
+    .brand-icon-sq {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35);
+    }
+    .brand-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #fff;
+    }
+
+    .hero-content {
+      margin: 40px 0;
+      z-index: 2;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #a5b4fc;
+      margin-bottom: 24px;
+    }
+    .hero-headline {
+      font-size: 2.8rem;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.04em;
+      color: #ffffff;
+      margin-bottom: 20px;
+    }
+    .hero-headline span.grad {
+      background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-desc {
+      font-size: 1.05rem;
+      line-height: 1.65;
+      color: #94a3b8;
+      max-width: 440px;
+      margin-bottom: 36px;
+    }
+
+    .feature-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .feature-ico {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .feature-text strong {
+      display: block;
+      font-size: 0.9rem;
+      color: #f1f5f9;
+      font-weight: 600;
+    }
+    .feature-text span {
+      font-size: 0.82rem;
+      color: #64748b;
+    }
+
+    .hero-footer-note {
+      font-size: 0.82rem;
+      color: #64748b;
+      z-index: 2;
+    }
+
+    /* ── Right side: Form container ── */
+    .login-right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 40px;
+      background: #09090b;
+      overflow-y: auto;
+    }
+
+    .login-card-inner {
+      width: 100%;
+      max-width: 440px;
+      background: #141417;
+      border: 1px solid #27272a;
+      border-radius: 20px;
+      padding: 36px 32px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+      position: relative;
+    }
+
+    .form-heading {
+      margin-bottom: 24px;
+    }
+    .form-heading h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #fafafa;
+      margin-bottom: 6px;
+    }
+    .form-heading p {
+      font-size: 0.88rem;
+      color: #a1a1aa;
+    }
+
+    /* Step tabs */
+    .step-track {
+      display: flex;
+      align-items: center;
+      margin-bottom: 28px;
+      gap: 6px;
+    }
+    .step-tab {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: #27272a;
+      transition: background 0.25s ease;
+    }
+    .step-tab.active {
+      background: var(--accent);
+    }
+    .step-tab.done {
+      background: var(--ok);
+    }
+
+    .step-panel {
+      display: none;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .step-panel.active {
+      display: flex;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Avatar Grid */
+    .avatar-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .avatar-btn {
+      position: relative;
+      aspect-ratio: 1;
+      border-radius: 14px;
+      border: 2px solid #27272a;
+      background: #1c1c20;
+      cursor: pointer;
+      overflow: hidden;
+      padding: 0;
+      transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .avatar-btn:hover {
+      transform: scale(1.06);
+      border-color: #6366f1;
+    }
+    .avatar-btn.selected {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.35);
+      transform: scale(1.06);
+    }
+    .avatar-btn svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Selected avatar preview card */
+    .av-preview-box {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      background: #1c1c21;
+      border: 1px solid #2e2e35;
+      border-radius: 14px;
+    }
+    .av-preview-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .av-preview-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+    .av-preview-info strong {
+      display: block;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #fafafa;
+    }
+    .av-preview-info span {
+      font-size: 0.8rem;
+      color: #a1a1aa;
+    }
+
+    /* Return user card */
+    .welcome-back-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 12px;
+      padding: 12px 0;
+    }
+    .welcome-av {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.35);
+      border: 2px solid #6366f1;
+    }
+    .welcome-av svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    @media (max-width: 900px) {
+      body.login-body {
+        grid-template-columns: 1fr;
+      }
+      .login-left {
+        display: none;
+      }
+      .login-right {
+        padding: 24px 16px;
+      }
+      .login-card-inner {
+        padding: 28px 20px;
+      }
+    }
+  </style>
 </head>
 <body class="login-body">
-  <main class="login-wrap">
-    <div class="login-card">
-      <div class="brand big">📚 StudyHub</div>
-      <p class="muted">Sign in to start studying with others on live video.</p>
 
-      <h1 class="login-title">Who's studying today?</h1>
-
-      <label class="field-label" for="login-name">Your name</label>
-      <input id="login-name" placeholder="e.g. Aarav" maxlength="30" autocomplete="name" />
-
-      <label class="field-label" for="login-avatar">Pick an avatar</label>
-      <div id="avatar-picker" class="avatar-picker"></div>
-
-      <label class="field-label" for="login-language">I study in…</label>
-      <select id="login-language">
-        <option value="">Choose language…</option>
-        <option>English</option><option>Hindi</option><option>Spanish</option><option>French</option>
-        <option>German</option><option>Portuguese</option><option>Arabic</option><option>Chinese</option>
-        <option>Japanese</option><option>Korean</option><option>Russian</option><option>Other</option>
-      </select>
-
-      <label class="field-label" for="login-country">Country</label>
-      <select id="login-country">
-        <option value="">Choose country…</option>
-        <option>India</option><option>United States</option><option>United Kingdom</option><option>Canada</option>
-        <option>Australia</option><option>Brazil</option><option>Germany</option><option>France</option>
-        <option>Spain</option><option>Mexico</option><option>Japan</option><option>Other</option>
-      </select>
-
-      <div id="login-error" class="login-error hidden"></div>
-      <button id="btn-login" class="btn primary wide">Enter StudyHub →</button>
-      <p class="muted small-print">Your profile is stored only in this browser.</p>
+  <!-- ══════════════ LEFT: Brand & Presentation ══════════════ -->
+  <section class="login-left">
+    <div class="brand-row">
+      <div class="brand-icon-sq">📚</div>
+      <span class="brand-title">StudyHub</span>
     </div>
-  </main>
+
+    <div class="hero-content">
+      <div class="hero-badge">⚡ Real-time Peer Learning</div>
+      <h2 class="hero-headline">
+        Study with others,<br />
+        <span class="grad">stay in the zone.</span>
+      </h2>
+      <p class="hero-desc">
+        Jump into live video study rooms, collaborate with peers worldwide, and ask the built-in AI Tutor whenever you're stuck.
+      </p>
+
+      <div class="feature-list">
+        <div class="feature-item">
+          <div class="feature-ico">👥</div>
+          <div class="feature-text">
+            <strong>Group Video Rooms</strong>
+            <span>Up to 8 peers per room with low-latency WebRTC</span>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-ico">🤖</div>
+          <div class="feature-text">
+            <strong>Integrated AI Tutor</strong>
+            <span>Get explanations, quiz hints, and problem breakdowns</span>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-ico">🌐</div>
+          <div class="feature-text">
+            <strong>Smart Matchmaking</strong>
+            <span>Match by language and country or browse public grinds</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-footer-note">
+      🔒 No account needed • Browser-local profile
+    </div>
+  </section>
+
+  <!-- ══════════════ RIGHT: Authentication Form ══════════════ -->
+  <section class="login-right">
+    <div class="login-card-inner">
+
+      <!-- Return user state (shown if already has profile) -->
+      <div id="panel-returning" class="step-panel" style="display:none">
+        <div class="welcome-back-card">
+          <div class="welcome-av" id="welcome-av"></div>
+          <div>
+            <h2 style="font-size:1.4rem;font-weight:700;letter-spacing:-0.02em;color:#fff;margin-top:8px" id="welcome-name">Welcome back!</h2>
+            <p style="font-size:0.88rem;color:#a1a1aa;margin-top:4px" id="welcome-meta"></p>
+          </div>
+        </div>
+        <button id="btn-continue-home" class="btn primary wide" style="padding:13px;font-size:0.95rem;margin-top:12px">
+          Enter StudyHub →
+        </button>
+        <button id="btn-edit-profile" class="btn wide" style="padding:11px;font-size:0.88rem">
+          ✏️ Edit profile / Change avatar
+        </button>
+      </div>
+
+      <!-- New/Edit profile flow -->
+      <div id="panel-wizard">
+        <div class="form-heading">
+          <h1 id="wizard-title">Create your profile</h1>
+          <p id="wizard-sub">Set up your student identity to enter live study rooms.</p>
+        </div>
+
+        <!-- Step track indicators -->
+        <div class="step-track">
+          <div class="step-tab active" id="tab-1"></div>
+          <div class="step-tab" id="tab-2"></div>
+          <div class="step-tab" id="tab-3"></div>
+        </div>
+
+        <!-- Step 1: Name -->
+        <div class="step-panel active" id="step-1">
+          <div class="field-group">
+            <label class="field-label" for="login-name">Your display name</label>
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                </svg>
+              </span>
+              <input id="login-name" type="text" placeholder="e.g. Aarav or Samantha" maxlength="30" autocomplete="given-name" spellcheck="false" />
+            </div>
+          </div>
+          <div id="login-error-1" class="login-error hidden" role="alert"></div>
+          <button class="btn primary wide" id="btn-step1-next" style="padding:12px;font-size:0.95rem">
+            Choose Avatar →
+          </button>
+        </div>
+
+        <!-- Step 2: Avatar -->
+        <div class="step-panel" id="step-2">
+          <div class="field-group">
+            <span class="field-label">Choose your avatar</span>
+            <div class="avatar-grid" id="avatar-grid"></div>
+          </div>
+
+          <div class="av-preview-box">
+            <div class="av-preview-icon" id="av-preview-icon"></div>
+            <div class="av-preview-info">
+              <strong id="av-preview-name">Student</strong>
+              <span id="av-preview-tag">Study Persona</span>
+            </div>
+          </div>
+
+          <div class="step-nav" style="display:flex;gap:10px">
+            <button class="btn" id="btn-step2-back" style="flex:1">← Back</button>
+            <button class="btn primary" id="btn-step2-next" style="flex:2">Set Preferences →</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Preferences -->
+        <div class="step-panel" id="step-3">
+          <div class="field-group">
+            <label class="field-label" for="login-language">I study primarily in</label>
+            <select id="login-language">
+              <option value="">Select study language…</option>
+              <option>English</option><option>Hindi</option><option>Spanish</option><option>French</option>
+              <option>German</option><option>Portuguese</option><option>Arabic</option><option>Chinese</option>
+              <option>Japanese</option><option>Korean</option><option>Russian</option><option>Other</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="login-country">Country <span style="color:var(--text-tertiary);font-weight:400">(for local study rooms)</span></label>
+            <select id="login-country">
+              <option value="">Select country (optional)…</option>
+              <option>India</option><option>United States</option><option>United Kingdom</option><option>Canada</option>
+              <option>Australia</option><option>Brazil</option><option>Germany</option><option>France</option>
+              <option>Spain</option><option>Mexico</option><option>Japan</option><option>Other</option>
+            </select>
+          </div>
+
+          <div id="login-error-3" class="login-error hidden" role="alert"></div>
+
+          <div class="step-nav" style="display:flex;gap:10px">
+            <button class="btn" id="btn-step3-back" style="flex:1">← Back</button>
+            <button class="btn primary" id="btn-submit" style="flex:2">Enter StudyHub →</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
 
   <script src="/js/login.js"></script>
 </body>

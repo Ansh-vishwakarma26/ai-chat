@@ -4,61 +4,133 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>StudyHub — Home</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
+  <script src="/js/avatars.js"></script>
 </head>
 <body>
+
+  <!-- Top bar -->
   <header class="topbar">
-    <div class="brand">📚 StudyHub</div>
-    <div class="profile-chip" id="profile-chip">
-      <span class="avatar" id="chip-avatar">🧑‍🎓</span>
-      <span id="chip-name">…</span>
-      <span class="muted" id="chip-meta"></span>
+    <div class="brand">
+      <div class="brand-logo">📚</div>
+      StudyHub
     </div>
-    <button id="open-settings" class="btn small" title="Settings">⚙️ Settings</button>
+
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="profile-chip" id="profile-chip" title="Your profile">
+        <div class="avatar-bubble" id="chip-avatar">🧑‍🎓</div>
+        <span class="chip-name" id="chip-name">…</span>
+        <span class="chip-meta" id="chip-meta"></span>
+      </div>
+      <button id="open-settings" class="btn small" title="Settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        Settings
+      </button>
+    </div>
   </header>
 
+  <!-- Main -->
   <main class="landing">
+
+    <!-- Hero -->
     <section class="hero">
       <h1 id="greeting">Ready to study?</h1>
       <p>Join a live room with up to 8 people, or let us find you a seat automatically.</p>
     </section>
 
+    <!-- Action cards -->
     <section class="cards">
+
+      <!-- Join by ID -->
       <div class="card">
-        <h2>🔑 Join with ID</h2>
-        <p>Have a code from a friend? Enter it here.</p>
-        <input id="join-id" placeholder="Room ID (e.g. K7X2QM)" maxlength="6" class="uppercase" />
+        <div class="card-icon">🔑</div>
+        <div>
+          <h2>Join with a code</h2>
+          <p>Have a room ID from a friend? Enter it below.</p>
+        </div>
+        <input
+          id="join-id"
+          placeholder="e.g. K7X2QM"
+          maxlength="6"
+          class="uppercase"
+          autocomplete="off"
+          spellcheck="false"
+          style="letter-spacing:0.12em;font-weight:600;font-size:1.1rem;text-align:center"
+        />
         <button id="btn-join" class="btn primary">Join room</button>
       </div>
 
+      <!-- Random join -->
       <div class="card">
-        <h2>🎲 Random join</h2>
-        <p>Starts searching for an open seat in a live room — your language/country first, then anywhere. If every room is full, we'll pair you with the next person who joins.</p>
+        <div class="card-icon">🎲</div>
+        <div>
+          <h2>Random join</h2>
+          <p>We'll find you an open seat — matching your language first. No seat? We'll queue you for the next person.</p>
+        </div>
         <button id="btn-random" class="btn primary">Find me a seat</button>
         <div id="random-status" class="status hidden"></div>
       </div>
 
+      <!-- Create room -->
       <div class="card">
-        <h2>➕ Create a room</h2>
-        <p>Generate a room ID and share it with friends.</p>
+        <div class="card-icon">➕</div>
+        <div>
+          <h2>Create a room</h2>
+          <p>Generate a room ID and share it with your study crew.</p>
+        </div>
         <input id="create-name" placeholder="Room name (e.g. Calculus grind)" maxlength="50" />
-        <label class="check"><input type="checkbox" id="create-public" checked /> List publicly so others can find it</label>
+        <label class="check" for="create-public">
+          <input type="checkbox" id="create-public" checked />
+          <span class="check-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </span>
+          <span class="check-text">List publicly so others can discover it</span>
+        </label>
         <button id="btn-create" class="btn primary">Create room &amp; get ID</button>
         <div id="created-id" class="room-id hidden"></div>
+        <div id="created-actions" class="created-actions hidden">
+          <button id="btn-enter-room" class="btn primary">Enter room →</button>
+          <button id="btn-delete-room" class="btn danger-soft">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+            Delete room
+          </button>
+        </div>
       </div>
+
     </section>
 
+    <!-- Browse -->
     <section class="browse">
-      <h2>🔍 Browse public rooms</h2>
+      <div class="browse-header">
+        <h2>Browse public rooms</h2>
+        <span id="room-count" class="badge" style="display:none"></span>
+      </div>
+
       <div class="filters">
-        <input id="search-q" placeholder="Search rooms…" />
-        <select id="search-language">
+        <div class="input-wrap" style="flex:1;min-width:200px">
+          <span class="input-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+          </span>
+          <input id="search-q" placeholder="Search rooms…" style="padding-left:38px" />
+        </div>
+        <select id="search-language" style="min-width:140px;flex:0 0 auto">
           <option value="">Any language</option>
           <option>English</option><option>Hindi</option><option>Spanish</option><option>French</option>
           <option>German</option><option>Portuguese</option><option>Arabic</option><option>Chinese</option>
           <option>Japanese</option><option>Korean</option><option>Russian</option><option>Other</option>
         </select>
-        <select id="search-country">
+        <select id="search-country" style="min-width:130px;flex:0 0 auto">
           <option value="">Any country</option>
           <option>India</option><option>United States</option><option>United Kingdom</option><option>Canada</option>
           <option>Australia</option><option>Brazil</option><option>Germany</option><option>France</option>
@@ -66,50 +138,82 @@
         </select>
         <button id="btn-search" class="btn">Search</button>
       </div>
-      <div id="room-list" class="room-list"><p class="muted">Loading rooms…</p></div>
+
+      <div id="room-list" class="room-list">
+        <p class="muted" style="font-size:0.875rem;padding:12px 0">Loading rooms…</p>
+      </div>
     </section>
+
   </main>
 
-  <aside id="settings-panel" class="drawer hidden">
+  <!-- Settings drawer -->
+  <aside id="settings-panel" class="drawer hidden" role="dialog" aria-modal="true" aria-label="Settings">
     <div class="panel-head">
-      <h3>⚙️ Settings</h3>
-      <button id="close-settings" class="btn small">✕</button>
+      <h3>Settings</h3>
+      <button id="close-settings" class="btn small" aria-label="Close settings">✕</button>
     </div>
     <div class="drawer-body">
-      <label class="field-label" for="set-name">Name</label>
-      <input id="set-name" maxlength="30" />
 
-      <label class="field-label">Avatar</label>
-      <div id="set-avatars" class="avatar-picker"></div>
+      <div class="field-group">
+        <label class="field-label" for="set-name">Display name</label>
+        <input id="set-name" maxlength="30" autocomplete="given-name" />
+      </div>
 
-      <label class="field-label" for="set-language">Study language</label>
-      <select id="set-language">
-        <option>English</option><option>Hindi</option><option>Spanish</option><option>French</option>
-        <option>German</option><option>Portuguese</option><option>Arabic</option><option>Chinese</option>
-        <option>Japanese</option><option>Korean</option><option>Russian</option><option>Other</option>
-      </select>
+      <div class="field-group">
+        <span class="field-label">Avatar</span>
+        <div id="set-avatars" class="avatar-picker"></div>
+      </div>
 
-      <label class="field-label" for="set-country">Country</label>
-      <select id="set-country">
-        <option>Any</option>
-        <option>India</option><option>United States</option><option>United Kingdom</option><option>Canada</option>
-        <option>Australia</option><option>Brazil</option><option>Germany</option><option>France</option>
-        <option>Spain</option><option>Mexico</option><option>Japan</option><option>Other</option>
-      </select>
+      <div class="divider" style="margin:8px 0"></div>
 
-      <label class="field-label" for="set-default-mic">Join calls with</label>
-      <select id="set-default-mic">
-        <option value="on">Mic on</option>
-        <option value="off">Mic muted</option>
-      </select>
-      <label class="check"><input type="checkbox" id="set-default-cam" checked /> Join calls with camera on</label>
+      <div class="field-group">
+        <label class="field-label" for="set-language">Study language</label>
+        <select id="set-language">
+          <option>English</option><option>Hindi</option><option>Spanish</option><option>French</option>
+          <option>German</option><option>Portuguese</option><option>Arabic</option><option>Chinese</option>
+          <option>Japanese</option><option>Korean</option><option>Russian</option><option>Other</option>
+        </select>
+      </div>
 
-      <button id="btn-save-settings" class="btn primary wide">Save settings</button>
-      <button id="btn-logout" class="btn wide danger-soft">Log out</button>
+      <div class="field-group">
+        <label class="field-label" for="set-country">Country</label>
+        <select id="set-country">
+          <option>Any</option>
+          <option>India</option><option>United States</option><option>United Kingdom</option><option>Canada</option>
+          <option>Australia</option><option>Brazil</option><option>Germany</option><option>France</option>
+          <option>Spain</option><option>Mexico</option><option>Japan</option><option>Other</option>
+        </select>
+      </div>
+
+      <div class="divider" style="margin:8px 0"></div>
+
+      <div class="field-group">
+        <label class="field-label" for="set-default-mic">Join calls with mic</label>
+        <select id="set-default-mic">
+          <option value="on">Mic on</option>
+          <option value="off">Mic muted</option>
+        </select>
+      </div>
+
+      <label class="check" for="set-default-cam" style="margin-top:8px">
+        <input type="checkbox" id="set-default-cam" checked />
+        <span class="check-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </span>
+        <span class="check-text">Join calls with camera on</span>
+      </label>
+
+      <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
+        <button id="btn-save-settings" class="btn primary wide">Save settings</button>
+        <button id="btn-logout" class="btn danger-soft wide">Log out</button>
+      </div>
+
     </div>
   </aside>
 
-  <div id="toast" class="toast hidden"></div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/home.js"></script>

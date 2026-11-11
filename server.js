@@ -78,7 +78,7 @@ function sanitizeProfile(profile) {
   const p = profile && typeof profile === 'object' ? profile : {};
   return {
     name: String(p.name || 'Guest').slice(0, 30),
-    avatar: String(p.avatar || '🧑‍🎓').slice(0, 8),
+    avatar: String(p.avatar || 'alex').slice(0, 32),
     language: String(p.language || 'Any').slice(0, 30),
     country: String(p.country || 'Any').slice(0, 30)
   };
@@ -136,6 +136,15 @@ app.get('/api/rooms/:id', (req, res) => {
   const room = rooms.get(String(req.params.id).toUpperCase());
   if (!room) return res.status(404).json({ error: 'Room not found' });
   res.json({ room: publicRoomInfo(room) });
+});
+
+app.delete('/api/rooms/:id', (req, res) => {
+  const roomId = String(req.params.id).toUpperCase();
+  const room = rooms.get(roomId);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+  io.to(roomId).emit('room-deleted', { roomId });
+  rooms.delete(roomId);
+  res.json({ ok: true, deleted: roomId });
 });
 
 /* ---------------- AI tutor proxy ----------------
@@ -211,6 +220,18 @@ io.on('connection', (socket) => {
     };
     rooms.set(id, room);
     if (typeof cb === 'function') cb({ ok: true, roomId: id });
+  });
+
+  socket.on('delete-room', (payload, cb) => {
+    const p = payload || {};
+    const id = String(p.roomId || '').trim().toUpperCase();
+    if (rooms.has(id)) {
+      io.to(id).emit('room-deleted', { roomId: id });
+      rooms.delete(id);
+      if (typeof cb === 'function') cb({ ok: true });
+    } else {
+      if (typeof cb === 'function') cb({ ok: false, error: 'Room not found' });
+    }
   });
 
   socket.on('join-room', (payload, cb) => {

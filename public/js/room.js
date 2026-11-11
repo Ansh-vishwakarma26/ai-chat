@@ -68,7 +68,7 @@
     }
     if (localStream.getAudioTracks().length) localStream.getAudioTracks().forEach((t) => { t.enabled = micOn; });
     if (localStream.getVideoTracks().length) localStream.getVideoTracks().forEach((t) => { t.enabled = camOn; });
-    addTile(myId, profile.name, profile.language, true);
+    addTile(myId, profile.name, profile.language, true, profile.avatar);
     attachStream(myId, localStream);
     setTileCam(myId, camOn);
     setTileMic(myId, micOn);
@@ -81,7 +81,7 @@
   /* ================= Tiles ================= */
   function addTile(id, name, language, isMe, avatar) {
     if (document.getElementById('tile-' + id)) return;
-    const meta = { avatar };
+    const avId = avatar || (isMe ? profile.avatar : 'alex');
     const tile = document.createElement('div');
     tile.className = 'tile';
     tile.id = 'tile-' + id;
@@ -95,7 +95,9 @@
     const label = document.createElement('div');
     label.className = 'label';
     label.innerHTML = `<span class="av"></span><span class="nm"></span>` + (language && language !== 'Any' ? `<span class="lang"></span>` : '');
-    label.querySelector('.av').textContent = (meta && meta.avatar) || '🧑‍🎓';
+    const avEl = label.querySelector('.av');
+    avEl.style.cssText = 'width:20px;height:20px;display:inline-flex;border-radius:6px;overflow:hidden;vertical-align:middle;margin-right:6px;flex-shrink:0;';
+    if (window.getStudyAvatarSvg) { avEl.innerHTML = window.getStudyAvatarSvg(avId); } else { avEl.textContent = '🧑‍🎓'; }
     label.querySelector('.nm').textContent = name + (isMe ? ' (you)' : '');
     const langEl = label.querySelector('.lang');
     if (langEl) langEl.textContent = language;
@@ -297,6 +299,11 @@
   socket.on('peer-state', ({ id, micOn: m, camOn: c }) => {
     if (typeof m === 'boolean') setTileMic(id, m);
     if (typeof c === 'boolean') setTileCam(id, c);
+  });
+
+  socket.on('room-deleted', () => {
+    alert('This study room has been closed or deleted.');
+    window.location.href = '/home.html';
   });
 
   window.addEventListener('beforeunload', () => {
