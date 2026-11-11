@@ -283,6 +283,56 @@ input::placeholder { color: var(--muted); }
 }
 .hint { color: var(--muted); font-size: 0.82rem; }
 
+/* ---------- Login page ---------- */
+.login-body { display: flex; align-items: center; justify-content: center; padding: 24px; }
+.login-wrap { width: 100%; max-width: 460px; }
+.login-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.brand.big { font-size: 1.6rem; font-weight: 700; }
+.login-title { font-size: 1.3rem; margin-top: 8px; }
+.field-label { font-size: 0.85rem; color: var(--muted); margin-top: 8px; display: block; }
+.login-card input, .login-card select, .drawer-body input, .drawer-body select { width: 100%; }
+.login-error { color: var(--danger); font-size: 0.88rem; }
+.wide { width: 100%; margin-top: 12px; }
+.small-print { font-size: 0.78rem; text-align: center; }
+
+.avatar-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.avatar-option {
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  font-size: 1.4rem;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.avatar-option.selected { border-color: var(--accent); background: rgba(108, 123, 255, 0.15); }
+
+/* ---------- Profile chip + settings drawer ---------- */
+.profile-chip { display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; }
+.profile-chip .avatar { font-size: 1.2rem; }
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(340px, 90vw);
+  background: var(--bg-soft);
+  border-left: 1px solid var(--border);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.4);
+}
+.drawer-body { padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.danger-soft { border-color: var(--danger); color: var(--danger); }
+
 /* ---------- Toast ---------- */
 .toast {
   position: fixed;

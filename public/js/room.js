@@ -5,12 +5,8 @@
   const roomId = (params.get('id') || '').trim().toUpperCase();
   if (!roomId) { window.location.href = '/'; return; }
 
-  const profile = JSON.parse(localStorage.getItem('studyhub-profile') || '{}');
-  if (!profile.name) {
-    profile.name = 'Guest';
-    profile.language = 'Any';
-    profile.country = 'Any';
-  }
+  const profile = JSON.parse(localStorage.getItem('studyhub-profile') || 'null');
+  if (!profile || !profile.name) { window.location.href = '/'; return; }
 
   const MAX_PARTICIPANTS = 8;
   const ICE_SERVERS = [
@@ -26,8 +22,8 @@
   const peerMeta = new Map();     // peer socketId -> { name, language, country }
   let myId = null;
   let localStream = null;
-  let micOn = true;
-  let camOn = true;
+  let micOn = profile.defaultMic !== 'off';
+  let camOn = profile.defaultCam !== false;
   let allOthersMuted = false;
 
   /* ================= UI helpers ================= */
@@ -70,15 +66,22 @@
       $('cam-btn').textContent = '📷 Cam off';
       $('cam-btn').classList.remove('on');
     }
+    if (localStream.getAudioTracks().length) localStream.getAudioTracks().forEach((t) => { t.enabled = micOn; });
+    if (localStream.getVideoTracks().length) localStream.getVideoTracks().forEach((t) => { t.enabled = camOn; });
     addTile(myId, profile.name, profile.language, true);
     attachStream(myId, localStream);
     setTileCam(myId, camOn);
     setTileMic(myId, micOn);
+    $('mic-btn').textContent = micOn ? '🎤 Mic on' : '🎤 Mic off';
+    $('mic-btn').classList.toggle('on', micOn);
+    $('cam-btn').textContent = camOn ? '📷 Cam on' : '📷 Cam off';
+    $('cam-btn').classList.toggle('on', camOn);
   }
 
   /* ================= Tiles ================= */
-  function addTile(id, name, language, isMe) {
+  function addTile(id, name, language, isMe, avatar) {
     if (document.getElementById('tile-' + id)) return;
+    const meta = { avatar };
     const tile = document.createElement('div');
     tile.className = 'tile';
     tile.id = 'tile-' + id;
@@ -91,7 +94,8 @@
 
     const label = document.createElement('div');
     label.className = 'label';
-    label.innerHTML = `<span class="nm"></span>` + (language && language !== 'Any' ? `<span class="lang"></span>` : '');
+    label.innerHTML = `<span class="av"></span><span class="nm"></span>` + (language && language !== 'Any' ? `<span class="lang"></span>` : '');
+    label.querySelector('.av').textContent = (meta && meta.avatar) || '🧑‍🎓';
     label.querySelector('.nm').textContent = name + (isMe ? ' (you)' : '');
     const langEl = label.querySelector('.lang');
     if (langEl) langEl.textContent = language;
@@ -260,7 +264,7 @@
       socket.emit('join-room', { roomId, profile }, (res) => {
         if (!res || !res.ok) {
           alert((res && res.error) || 'Could not join room.');
-          window.location.href = '/';
+          window.location.href = '/home.html';
           return;
         }
         $('room-code').textContent = roomId;
@@ -268,7 +272,7 @@
         document.title = `StudyHub — ${res.room.name || roomId}`;
         for (const p of res.peers) {
           peerMeta.set(p.id, p);
-          addTile(p.id, p.name, p.language, false);
+          addTile(p.id, p.name, p.language, false, p.avatar);
           setTileMic(p.id, p.micOn);
           setTileCam(p.id, p.camOn);
           makeOffer(p.id);
@@ -280,8 +284,8 @@
 
   socket.on('peer-joined', (p) => {
     peerMeta.set(p.id, p);
-    addTile(p.id, p.name, p.language, false);
-    addMessage($('chat-messages'), { text: `${p.name} joined the room.`, cls: 'system' });
+    addTile(p.id, p.name, p.language, false, p.avatar);
+    addMessage($('chat-messages'), { text: `${p.avatar || ''} ${p.name} joined the room.`, cls: 'system' });
   });
 
   socket.on('peer-left', ({ id }) => {
@@ -317,7 +321,7 @@
   socket.on('chat-message', (msg) => {
     const mine = msg.from === myId;
     addMessage($('chat-messages'), {
-      who: mine ? 'You' : msg.name,
+      who: mine ? `${profile.avatar || ''} You` : `${msg.avatar || ''} ${msg.name}`,
       text: msg.text,
       cls: mine ? 'mine' : ''
     });
@@ -379,5 +383,5 @@
   $('room-code').addEventListener('click', () => {
     navigator.clipboard.writeText(roomId).then(() => toast('Room ID copied!')).catch(() => {});
   });
-  $('leave-btn').addEventListener('click', () => { window.location.href = '/'; });
+  $('leave-btn').addEventListener('click', () => { window.location.href = '/home.html'; });
 })();

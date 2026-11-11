@@ -71,12 +71,41 @@ function sanitizeProfile(profile) {
   const p = profile && typeof profile === 'object' ? profile : {};
   return {
     name: String(p.name || 'Guest').slice(0, 30),
+    avatar: String(p.avatar || '🧑‍🎓').slice(0, 8),
     language: String(p.language || 'Any').slice(0, 30),
     country: String(p.country || 'Any').slice(0, 30)
   };
 }
 
+/* Find a public room with an open seat, preferring language/country matches.
+ * Returns { roomId, roomName } or { roomId: null }. */
+app.get('/api/random-room', (req, res) => {
+  const norm = (v) => String(v || '').trim().toLowerCase();
+  const language = norm(req.query.language);
+  const country = norm(req.query.country);
+  let best = null;
+  let bestScore = -1;
+  for (const room of rooms.values()) {
+    if (!room.isPublic) continue;
+    if (room.participants.size >= MAX_PARTICIPANTS) continue;
+    const rl = norm(room.language);
+    const rc = norm(room.country);
+    let score;
+    if (language && language !== 'any' && rl === language && country && country !== 'any' && rc === country) score = 3;
+    else if (language && language !== 'any' && rl === language) score = 2;
+    else if (country && country !== 'any' && rc === country) score = 1;
+    else score = 0;
+    if (score > bestScore || (score === bestScore && best && room.participants.size < best.participants.size)) {
+      best = room;
+      bestScore = score;
+    }
+  }
+  if (best) return res.json({ roomId: best.id, roomName: best.name });
+  res.json({ roomId: null });
+});
+
 /* ---------------- REST API ---------------- */
+// Random join: /api/random-room?language=English&country=India
 // Lobby search: /api/rooms?language=Hindi&country=India&q=math
 app.get('/api/rooms', (req, res) => {
   const { language, country, q } = req.query;
@@ -198,7 +227,7 @@ io.on('connection', (socket) => {
     const peers = [];
     for (const [id, meta] of room.participants) {
       if (id === socket.id) continue;
-      peers.push({ id, name: meta.name, language: meta.language, country: meta.country, micOn: meta.micOn, camOn: meta.camOn });
+      peers.push({ id, name: meta.name, avatar: meta.avatar, language: meta.language, country: meta.country, micOn: meta.micOn, camOn: meta.camOn });
     }
     if (typeof cb === 'function') cb({ ok: true, roomId, room: publicRoomInfo(room), you: { id: socket.id, ...profile }, peers });
 
@@ -295,6 +324,7 @@ io.on('connection', (socket) => {
     io.to(joinedRoomId).emit('chat-message', {
       from: socket.id,
       name: me.name,
+      avatar: me.avatar,
       text,
       ts: Date.now()
     });
