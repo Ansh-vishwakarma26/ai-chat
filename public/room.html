@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StudyHub — Room</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="room-body">
+  <header class="topbar room-topbar">
+    <div class="brand"><a href="/">📚 StudyHub</a></div>
+    <div class="room-meta">
+      <span id="room-title"></span>
+      <span class="room-code" id="room-code" title="Click to copy"></span>
+      <span class="count" id="participant-count"></span>
+    </div>
+    <div class="side-toggles">
+      <button id="toggle-chat" class="btn small">💬 Chat</button>
+      <button id="toggle-ai" class="btn small">🤖 AI Tutor</button>
+      <button id="leave-btn" class="btn small danger">Leave</button>
+    </div>
+  </header>
+
+  <main class="room-layout">
+    <section id="video-grid" class="video-grid"></section>
+
+    <aside id="chat-panel" class="side-panel hidden">
+      <div class="panel-head">
+        <h3>💬 Room chat</h3>
+        <button class="btn small close-panel" data-panel="chat">✕</button>
+      </div>
+      <div id="chat-messages" class="chat-messages"></div>
+      <form id="chat-form" class="chat-form">
+        <input id="chat-input" placeholder="Type a message…" maxlength="1000" autocomplete="off" />
+        <button class="btn primary" type="submit">Send</button>
+      </form>
+    </aside>
+
+    <aside id="ai-panel" class="side-panel hidden">
+      <div class="panel-head">
+        <h3>🤖 AI study tutor</h3>
+        <button class="btn small close-panel" data-panel="ai">✕</button>
+      </div>
+      <div id="ai-messages" class="chat-messages"></div>
+      <form id="ai-form" class="chat-form">
+        <input id="ai-input" placeholder="Ask anything about your studies…" maxlength="1000" autocomplete="off" />
+        <button class="btn primary" type="submit" id="ai-send">Ask</button>
+      </form>
+    </aside>
+  </main>
+
+  <footer class="controls">
+    <button id="mic-btn" class="btn control on" title="Toggle microphone">🎤 Mic on</button>
+    <button id="cam-btn" class="btn control on" title="Toggle camera">📷 Cam on</button>
+    <button id="mute-all-btn" class="btn control" title="Mute every remote participant for you only">🔇 Mute all others</button>
+    <span class="hint">Per-person mute buttons are on each video tile.</span>
+  </footer>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/room.js"></script>
+</body>
+</html>

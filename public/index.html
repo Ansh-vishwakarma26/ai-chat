@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StudyHub — Study together on video</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">📚 StudyHub</div>
+    <div class="profile-box">
+      <input id="profile-name" placeholder="Your name" maxlength="30" />
+      <select id="profile-language">
+        <option value="">Language…</option>
+        <option>English</option><option>Hindi</option><option>Spanish</option><option>French</option>
+        <option>German</option><option>Portuguese</option><option>Arabic</option><option>Chinese</option>
+        <option>Japanese</option><option>Korean</option><option>Russian</option><option>Other</option>
+      </select>
+      <select id="profile-country">
+        <option value="">Country…</option>
+        <option>India</option><option>United States</option><option>United Kingdom</option><option>Canada</option>
+        <option>Australia</option><option>Brazil</option><option>Germany</option><option>France</option>
+        <option>Spain</option><option>Mexico</option><option>Japan</option><option>Other</option>
+      </select>
+    </div>
+  </header>
+
+  <main class="landing">
+    <section class="hero">
+      <h1>Study together, focus better.</h1>
+      <p>Join a live video study room with up to 8 people. Chat on the side, mute noisy peers, and ask the AI tutor when you're stuck.</p>
+    </section>
+
+    <section class="cards">
+      <div class="card">
+        <h2>➕ Create a room</h2>
+        <p>Generate a room ID and share it with friends.</p>
+        <input id="create-name" placeholder="Room name (e.g. Calculus grind)" maxlength="50" />
+        <label class="check"><input type="checkbox" id="create-public" checked /> List publicly so others can find it</label>
+        <button id="btn-create" class="btn primary">Create room &amp; get ID</button>
+        <div id="created-id" class="room-id hidden"></div>
+      </div>
+
+      <div class="card">
+        <h2>🔑 Join with ID</h2>
+        <p>Have a code from a friend? Enter it here.</p>
+        <input id="join-id" placeholder="Room ID (e.g. K7X2QM)" maxlength="6" class="uppercase" />
+        <button id="btn-join" class="btn primary">Join room</button>
+      </div>
+
+      <div class="card">
+        <h2>🎲 Quick match</h2>
+        <p>Get paired with a random study partner instantly — or matched by your language/country when possible.</p>
+        <label class="check"><input type="checkbox" id="match-pref-language" checked /> Prefer my language</label>
+        <label class="check"><input type="checkbox" id="match-pref-country" /> Prefer my country</label>
+        <button id="btn-match" class="btn primary">Find me a study buddy</button>
+        <div id="match-status" class="status hidden"></div>
+      </div>
+    </section>
+
+    <section class="browse">
+      <h2>🔍 Browse public rooms</h2>
+      <div class="filters">
+        <input id="search-q" placeholder="Search rooms…" />
+        <select id="search-language">
+          <option value="">Any language</option>
+          <option>English</option><option>Hindi</option><option>Spanish</option><option>French</option>
+          <option>German</option><option>Portuguese</option><option>Arabic</option><option>Chinese</option>
+          <option>Japanese</option><option>Korean</option><option>Russian</option><option>Other</option>
+        </select>
+        <select id="search-country">
+          <option value="">Any country</option>
+          <option>India</option><option>United States</option><option>United Kingdom</option><option>Canada</option>
+          <option>Australia</option><option>Brazil</option><option>Germany</option><option>France</option>
+          <option>Spain</option><option>Mexico</option><option>Japan</option><option>Other</option>
+        </select>
+        <button id="btn-search" class="btn">Search</button>
+      </div>
+      <div id="room-list" class="room-list"><p class="muted">Loading rooms…</p></div>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
