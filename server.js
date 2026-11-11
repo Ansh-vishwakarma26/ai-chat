@@ -147,7 +147,7 @@ app.post('/api/ai/chat', async (req, res) => {
   if (!AI_API_URL || !AI_API_KEY) {
     return res.json({
       configured: false,
-      reply: 'AI tutor is not connected yet. Add your API URL and key in server.js (AI_API_URL / AI_API_KEY) and restart the server.'
+      reply: 'AI tutor is not connected yet. Set the AI_API_URL, AI_API_KEY and AI_MODEL environment variables (see .env.example) and restart.'
     });
   }
   try {
