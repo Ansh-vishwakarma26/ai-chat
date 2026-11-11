@@ -13,20 +13,27 @@ const path = require('path');
 const crypto = require('crypto');
 
 /* ============================================================
- * AI TUTOR CONFIGURATION  --  LEFT EMPTY ON PURPOSE
+ * AI TUTOR CONFIGURATION
  *
- * Put your AI provider details here when you are ready.
- * Any OpenAI-compatible chat completions endpoint works
- * (OpenAI, Mistral, Groq, OpenRouter, local LLM proxy, ...).
+ * Read from environment variables so keys never live in the repo.
+ * Any OpenAI-compatible chat completions endpoint works.
  *
- * Example:
- *   AI_API_URL = 'https://api.mistral.ai/v1/chat/completions'
- *   AI_API_KEY = 'your-key-here'
- *   AI_MODEL   = 'mistral-small-latest'
+ * Google AI Studio (Gemini) example:
+ *   AI_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
+ *   AI_API_KEY=your-google-ai-studio-key
+ *   AI_MODEL=gemini-2.0-flash
+ *
+ * Mistral example:
+ *   AI_API_URL=https://api.mistral.ai/v1/chat/completions
+ *   AI_API_KEY=your-key
+ *   AI_MODEL=mistral-small-latest
+ *
+ * Locally: put them in a `.env` file (gitignored) and `npm start`
+ * loads it automatically. Deployed: set them in the app's settings.
  * ============================================================ */
-const AI_API_URL = '';   // TODO: paste your AI chat-completions endpoint URL
-const AI_API_KEY = '';   // TODO: paste your API key
-const AI_MODEL = '';     // TODO: paste the model name (optional, provider default used if empty)
+const AI_API_URL = process.env.AI_API_URL || '';
+const AI_API_KEY = process.env.AI_API_KEY || '';
+const AI_MODEL = process.env.AI_MODEL || '';
 
 const MAX_PARTICIPANTS = 8;
 const PORT = process.env.PORT || 3000;
