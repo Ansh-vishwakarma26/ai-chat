@@ -687,7 +687,10 @@ select option {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  height: 100dvh; /* mobile: exclude the browser chrome so the control bar fits */
+  /* svh (not dvh) so the layout never grows under the mobile browser toolbar;
+     this keeps the mic/cam/mute controls on screen instead of below the fold */
+  height: 100svh;
+  max-height: 100svh;
   overflow: hidden;
   background: var(--bg);
 }
@@ -1002,6 +1005,16 @@ select option {
   .video-grid[data-count="8"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); }
   .video-grid { gap: 6px; padding: 6px; }
   .video-grid[data-count="1"] .tile { max-width: none; }
+
+  /* Phone portrait: stack tiles instead of squeezing tall columns side by side,
+     which produced giant cropped faces and pushed the controls off screen */
+  .video-grid[data-count="2"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  .video-grid[data-count="3"],
+  .video-grid[data-count="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  .video-grid[data-count="5"],
+  .video-grid[data-count="6"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); }
+  .video-grid[data-count="7"],
+  .video-grid[data-count="8"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); }
   .topbar { padding: 10px 16px; }
   .landing { padding: 24px 16px 60px; }
   .login-card { padding: 24px 20px; }

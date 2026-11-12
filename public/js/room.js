@@ -22,10 +22,22 @@
   })();
 
   const MAX_PARTICIPANTS = 8;
+  // STUN alone cannot connect peers behind carrier-grade NAT (very common on
+  // mobile data), which showed up as a black "other person" tile. A TURN relay
+  // is required as a fallback.
   const ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun.cloudflare.com:3478' }
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp'
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
   ];
 
   // Start with WebSocket (avoids the slow polling -> upgrade handshake behind
@@ -228,9 +240,11 @@
     // Fade out the connecting loader
     hideLoader();
 
-    // Attach tracks to existing peer connections if any arrived first
-    pcs.forEach((pc) => {
+    // Attach tracks to peer connections that were created before media was
+    // ready, then renegotiate so the remote side actually receives them.
+    pcs.forEach((pc, peerId) => {
       localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+      renegotiate(peerId);
     });
   }
 
@@ -395,7 +409,10 @@
         });
         const vTrack = vStream.getVideoTracks()[0];
         localStream.addTrack(vTrack);
-        pcs.forEach(pc => pc.addTrack(vTrack, localStream));
+        for (const [peerId, pc] of pcs) {
+          pc.addTrack(vTrack, localStream);
+          renegotiate(peerId);
+        }
       } catch {
         camOn = false;
         toast('Could not access camera.');
@@ -456,14 +473,25 @@
         const meta = peerMeta.get(peerId) || {};
         addTile(peerId, meta.name || 'Participant', meta.language, false, meta.avatar);
       }
-      remoteStreams.set(peerId, e.streams[0]);
-      attachStream(peerId, e.streams[0]);
+      let stream = e.streams[0];
+      if (!stream) {
+        // Some browsers fire track events without a stream container
+        stream = remoteStreams.get(peerId) || new MediaStream();
+        stream.addTrack(e.track);
+      }
+      if (e.track.kind === 'video') setTileCam(peerId, true);
+      remoteStreams.set(peerId, stream);
+      attachStream(peerId, stream);
     };
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'failed' && pc.signalingState === 'stable') {
+      const tile = $('tile-' + peerId);
+      const state = pc.connectionState;
+      if (tile) tile.classList.toggle('peer-connecting', state === 'connecting' || state === 'new');
+      if (state === 'failed' && pc.signalingState === 'stable') {
         try { pc.restartIce(); } catch (_) {}
         makeOffer(peerId);
       }
+      if (state === 'connected' && tile) tile.classList.remove('peer-connecting');
     };
     return pc;
   }
@@ -475,6 +503,20 @@
       await pc.setLocalDescription(offer);
       socket.emit('relay', { to: peerId, type: 'offer', data: pc.localDescription });
     } catch (_) {}
+  }
+
+  // Re-offer once the connection is idle again (used when tracks are added
+  // after the first negotiation, e.g. turning the camera on mid-call).
+  function renegotiate(peerId) {
+    const pc = pcs.get(peerId);
+    if (!pc) return;
+    if (pc.signalingState === 'stable') { makeOffer(peerId); return; }
+    const onStable = () => {
+      if (pc.signalingState !== 'stable') return;
+      pc.removeEventListener('signalingstatechange', onStable);
+      makeOffer(peerId);
+    };
+    pc.addEventListener('signalingstatechange', onStable);
   }
 
   socket.on('relay', async ({ from, type, data }) => {
@@ -523,10 +565,16 @@
   let joinTimer = null;
   let leaving = false;
 
-  function onJoined(res) {
+  async function onJoined(res) {
     $('room-code').textContent = roomId;
     $('room-title').textContent = res.room.name || 'Study room';
     document.title = `StudyHub — ${res.room.name || roomId}`;
+
+    // Negotiate only once our camera/mic tracks exist. Offering before
+    // getUserMedia resolves produced connections with no media (black remote
+    // tiles in both directions).
+    await initMedia();
+    if (leaving) return;
 
     // Populate peers
     for (const p of res.peers) {
