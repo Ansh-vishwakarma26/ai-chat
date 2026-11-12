@@ -836,19 +836,9 @@ select option {
 .tile .actions button:hover { background: rgba(0,0,0,0.9); }
 .tile .actions button.muted-for-me { background: var(--danger); border-color: var(--danger); }
 
-/* Camera off state */
+/* Camera off state: video hidden, avatar shown in its place */
 .tile.cam-off video { visibility: hidden; }
-.tile.cam-off::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-tertiary);
-  font-size: 0.875rem;
-  background: var(--bg-elevated);
-}
+
 .tile.cam-off .cam-off-placeholder {
   position: absolute;
   inset: 0;

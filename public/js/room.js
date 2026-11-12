@@ -287,6 +287,17 @@
     tile.appendChild(video);
     tile.appendChild(label);
 
+    // Avatar shown in place of the video when the camera is off
+    const camOffAvatar = document.createElement('div');
+    camOffAvatar.className = 'cam-off-avatar';
+    camOffAvatar.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:var(--bg-elevated);color:var(--text-tertiary);font-size:2rem;z-index:1;';
+    if (window.getStudyAvatarSvg) {
+      camOffAvatar.innerHTML = window.getStudyAvatarSvg(avId);
+    } else {
+      camOffAvatar.textContent = '🧑‍🎓';
+    }
+    tile.appendChild(camOffAvatar);
+
     if (!isMe) {
       const actions = document.createElement('div');
       actions.className = 'actions';
@@ -345,7 +356,11 @@
 
   function setTileCam(id, on) {
     const tile = $('tile-' + id);
-    if (tile) tile.classList.toggle('cam-off', !on);
+    if (tile) {
+      tile.classList.toggle('cam-off', !on);
+      const camAvatar = tile.querySelector('.cam-off-avatar');
+      if (camAvatar) camAvatar.style.display = on ? 'none' : 'flex';
+    }
   }
 
   function setTileMic(id, on) {
@@ -673,6 +688,7 @@
   socket.on('peer-joined', (p) => {
     peerMeta.set(p.id, p);
     addTile(p.id, p.name, p.language, false, p.avatar);
+    setTileCam(p.id, p.camOn !== false);
     addMessage($('chat-messages'), { text: `${p.name} joined the room.`, cls: 'system' });
   });
 
