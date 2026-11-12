@@ -28,7 +28,15 @@
     { urls: 'stun:stun.cloudflare.com:3478' }
   ];
 
-  const socket = io();
+  // Start with WebSocket (avoids the slow polling -> upgrade handshake behind
+  // proxies) and fall back to polling only if WebSocket is unavailable.
+  const socket = io({
+    transports: ['websocket', 'polling'],
+    reconnectionDelay: 400,
+    reconnectionDelayMax: 4000,
+    randomizationFactor: 0.3,
+    timeout: 10000
+  });
   const pcs = new Map();          // peer socketId -> RTCPeerConnection
   const remoteStreams = new Map();// peer socketId -> MediaStream
   const mutedByMe = new Set();    // peers whose audio I silenced locally
@@ -289,6 +297,7 @@
     remoteStreams.delete(id);
     mutedByMe.delete(id);
     peerMeta.delete(id);
+    pendingIce.delete(id);
     const tile = document.getElementById('tile-' + id);
     if (tile) tile.remove();
     updateGridCount();
@@ -402,9 +411,37 @@
   });
 
   /* ================= WebRTC mesh ================= */
+  // ICE candidates can arrive before the offer/answer is applied. Dropping them
+  // (the old behaviour) left connections stuck for several seconds, so queue
+  // them per peer and flush once the remote description exists.
+  const pendingIce = new Map();
+
+  function queueIce(peerId, candidate) {
+    const pc = pcs.get(peerId);
+    if (!pc) return;
+    if (!pc.remoteDescription || !pc.remoteDescription.type) {
+      if (!pendingIce.has(peerId)) pendingIce.set(peerId, []);
+      pendingIce.get(peerId).push(candidate);
+      return;
+    }
+    pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+  }
+
+  function flushIce(peerId) {
+    const pc = pcs.get(peerId);
+    const queued = pendingIce.get(peerId);
+    if (!pc || !queued) return;
+    pendingIce.delete(peerId);
+    queued.forEach((c) => pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {}));
+  }
+
   function createPeer(peerId) {
     if (pcs.has(peerId)) return pcs.get(peerId);
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const pc = new RTCPeerConnection({
+      iceServers: ICE_SERVERS,
+      iceCandidatePoolSize: 4,
+      bundlePolicy: 'max-bundle'
+    });
     pcs.set(peerId, pc);
 
     if (localStream) {
@@ -423,8 +460,9 @@
       attachStream(peerId, e.streams[0]);
     };
     pc.onconnectionstatechange = () => {
-      if (['failed', 'closed'].includes(pc.connectionState)) {
-        // ICE will restart or peer-left will clean up
+      if (pc.connectionState === 'failed' && pc.signalingState === 'stable') {
+        try { pc.restartIce(); } catch (_) {}
+        makeOffer(peerId);
       }
     };
     return pc;
@@ -444,6 +482,7 @@
       if (type === 'offer') {
         const pc = createPeer(from);
         await pc.setRemoteDescription(new RTCSessionDescription(data));
+        flushIce(from);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         socket.emit('relay', { to: from, type: 'answer', data: pc.localDescription });
@@ -451,10 +490,10 @@
         const pc = pcs.get(from);
         if (pc && pc.signalingState !== 'stable') {
           await pc.setRemoteDescription(new RTCSessionDescription(data));
+          flushIce(from);
         }
       } else if (type === 'ice') {
-        const pc = pcs.get(from);
-        if (pc) await pc.addIceCandidate(new RTCIceCandidate(data)).catch(() => {});
+        queueIce(from, data);
       }
     } catch (_) {}
   });
@@ -475,6 +514,7 @@
     remoteStreams.clear();
     mutedByMe.clear();
     peerMeta.clear();
+    pendingIce.clear();
     updateGridCount();
   }
 
@@ -496,7 +536,11 @@
       setTileCam(p.id, p.camOn);
       makeOffer(p.id);
     }
-    addMessage($('chat-messages'), { text: `You joined "${res.room.name}". Invite friends using ID: ${roomId}`, cls: 'system' });
+    // Only announce once, not on every reconnect
+    if (!onJoined._announced) {
+      onJoined._announced = true;
+      addMessage($('chat-messages'), { text: `You joined "${res.room.name}". Invite friends using ID: ${roomId}`, cls: 'system' });
+    }
   }
 
   // Leave without a blocking alert: stop hardware, then go home.
@@ -529,7 +573,7 @@
       // page with a modal alert.
       if (joinedOnce && joinAttempt < 6) {
         joinAttempt++;
-        toast('Connection dropped — rejoining the study room…', 3000);
+        showReconnectStatus();
         joinTimer = setTimeout(joinRoom, Math.min(1000 * joinAttempt, 5000));
         return;
       }
@@ -537,8 +581,26 @@
     });
   }
 
+  let reconnecting = false;
+  let reconnectStatusTimer = null;
+
+  function showReconnectStatus() {
+    if (reconnecting || leaving) return;
+    reconnecting = true;
+    toast('Connection lost — reconnecting…', 10 * 60 * 1000);
+  }
+
+  function clearReconnectStatus() {
+    clearTimeout(reconnectStatusTimer);
+    if (!reconnecting) return;
+    reconnecting = false;
+    const t = $('toast');
+    if (t) t.classList.add('hidden');
+  }
+
   socket.on('connect', () => {
     myId = socket.id;
+    clearReconnectStatus();
 
     // Drop everything from the previous connection before rejoining
     resetPeerState();
@@ -552,13 +614,12 @@
 
   socket.on('disconnect', (reason) => {
     if (leaving) return;
-    // Socket.IO reconnects automatically; keep the local tile visible and tell
-    // the user instead of dropping them out of the room.
-    if (reason !== 'io client disconnect') toast('Connection lost — reconnecting…', 4000);
-  });
-
-  socket.io.on('reconnect_attempt', () => {
-    if (!leaving) toast('Reconnecting to the study room…', 3000);
+    // Socket.IO reconnects automatically; keep the local tile visible. Only
+    // mention it if the drop lasts, so quick blips stay invisible.
+    if (reason !== 'io client disconnect') {
+      clearTimeout(reconnectStatusTimer);
+      reconnectStatusTimer = setTimeout(showReconnectStatus, 1500);
+    }
   });
 
   socket.on('peer-joined', (p) => {

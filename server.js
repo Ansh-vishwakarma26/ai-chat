@@ -40,7 +40,14 @@ const PORT = process.env.PORT || 3000;
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+// Frequent heartbeats keep proxies/CDNs (Vercel, ngrok, cloud LBs) from treating
+// an idle socket as dead and killing it, which was causing reconnect loops.
+const io = new Server(server, {
+  pingInterval: 10000,
+  pingTimeout: 15000,
+  transports: ['websocket', 'polling'],
+  maxHttpBufferSize: 1e6
+});
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
