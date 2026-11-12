@@ -478,6 +478,65 @@
     updateGridCount();
   }
 
+  let joinedOnce = false;
+  let joinAttempt = 0;
+  let joinTimer = null;
+  let leaving = false;
+
+  function onJoined(res) {
+    $('room-code').textContent = roomId;
+    $('room-title').textContent = res.room.name || 'Study room';
+    document.title = `StudyHub — ${res.room.name || roomId}`;
+
+    // Populate peers
+    for (const p of res.peers) {
+      peerMeta.set(p.id, p);
+      addTile(p.id, p.name, p.language, false, p.avatar);
+      setTileMic(p.id, p.micOn);
+      setTileCam(p.id, p.camOn);
+      makeOffer(p.id);
+    }
+    addMessage($('chat-messages'), { text: `You joined "${res.room.name}". Invite friends using ID: ${roomId}`, cls: 'system' });
+  }
+
+  // Leave without a blocking alert: stop hardware, then go home.
+  function leaveGracefully(message) {
+    if (leaving) return;
+    leaving = true;
+    clearTimeout(joinTimer);
+    toast(message + ' Returning to home…', 3000);
+    if (localStream) {
+      localStream.getTracks().forEach((t) => { try { t.stop(); t.enabled = false; } catch (_) {} });
+    }
+    pcs.forEach((pc) => { try { pc.close(); } catch (_) {} });
+    pcs.clear();
+    try { socket.disconnect(); } catch (_) {}
+    setTimeout(() => window.location.replace('/home.html'), 1400);
+  }
+
+  function joinRoom() {
+    clearTimeout(joinTimer);
+    if (leaving) return;
+    socket.emit('join-room', { roomId, profile, clientId }, (res) => {
+      if (res && res.ok) {
+        joinedOnce = true;
+        joinAttempt = 0;
+        onJoined(res);
+        return;
+      }
+      // On a reconnect the room may briefly be unavailable (or the host
+      // restarted). Retry a few times before giving up, and never block the
+      // page with a modal alert.
+      if (joinedOnce && joinAttempt < 6) {
+        joinAttempt++;
+        toast('Connection dropped — rejoining the study room…', 3000);
+        joinTimer = setTimeout(joinRoom, Math.min(1000 * joinAttempt, 5000));
+        return;
+      }
+      leaveGracefully((res && res.error) || 'Could not join room.');
+    });
+  }
+
   socket.on('connect', () => {
     myId = socket.id;
 
@@ -485,30 +544,21 @@
     resetPeerState();
 
     // Join room via socket immediately in parallel with camera warm-up
-    socket.emit('join-room', { roomId, profile, clientId }, (res) => {
-      if (!res || !res.ok) {
-        alert((res && res.error) || 'Could not join room.');
-        window.location.replace('/home.html');
-        return;
-      }
-
-      $('room-code').textContent = roomId;
-      $('room-title').textContent = res.room.name || 'Study room';
-      document.title = `StudyHub — ${res.room.name || roomId}`;
-
-      // Populate peers
-      for (const p of res.peers) {
-        peerMeta.set(p.id, p);
-        addTile(p.id, p.name, p.language, false, p.avatar);
-        setTileMic(p.id, p.micOn);
-        setTileCam(p.id, p.camOn);
-        makeOffer(p.id);
-      }
-      addMessage($('chat-messages'), { text: `You joined "${res.room.name}". Invite friends using ID: ${roomId}`, cls: 'system' });
-    });
+    joinRoom();
 
     // Start media acquisition in parallel
     initMedia();
+  });
+
+  socket.on('disconnect', (reason) => {
+    if (leaving) return;
+    // Socket.IO reconnects automatically; keep the local tile visible and tell
+    // the user instead of dropping them out of the room.
+    if (reason !== 'io client disconnect') toast('Connection lost — reconnecting…', 4000);
+  });
+
+  socket.io.on('reconnect_attempt', () => {
+    if (!leaving) toast('Reconnecting to the study room…', 3000);
   });
 
   socket.on('peer-joined', (p) => {
@@ -529,8 +579,7 @@
   });
 
   socket.on('room-deleted', () => {
-    alert('This study room has been closed or deleted.');
-    fastLeave();
+    leaveGracefully('This study room was closed or deleted.');
   });
 
   /* Instant hardware release on leave */
@@ -540,6 +589,8 @@
       btn.disabled = true;
       btn.textContent = 'Leaving…';
     }
+    leaving = true;
+    clearTimeout(joinTimer);
 
     // 1. Instantly stop all hardware tracks to unblock page unload
     if (localStream) {

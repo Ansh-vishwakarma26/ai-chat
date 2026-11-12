@@ -50,6 +50,27 @@ app.use(express.static(path.join(__dirname, 'public')));
 //             participants: Map<socketId, { name, language, country, micOn, camOn }> }
 const rooms = new Map();
 
+// Rooms are kept alive for a grace period after the last participant drops off,
+// so a flaky mobile connection (or a reconnect) can rejoin instead of getting
+// "Room not found". They are only swept once the grace period has elapsed.
+const EMPTY_ROOM_TTL_MS = 10 * 60 * 1000;
+const ROOM_SWEEP_INTERVAL_MS = 60 * 1000;
+
+function markRoomEmpty(room) {
+  if (room.participants.size === 0 && !room.emptySince) room.emptySince = Date.now();
+}
+
+function sweepEmptyRooms() {
+  const cutoff = Date.now() - EMPTY_ROOM_TTL_MS;
+  for (const [id, room] of rooms) {
+    if (room.participants.size === 0 && room.emptySince && room.emptySince < cutoff) {
+      rooms.delete(id);
+    }
+  }
+}
+setInterval(sweepEmptyRooms, ROOM_SWEEP_INTERVAL_MS).unref();
+
+
 // Quick-match queue: [{ socketId, profile, wantedLanguage, wantedCountry, joinedAt }]
 const matchQueue = [];
 
@@ -94,6 +115,7 @@ app.get('/api/random-room', (req, res) => {
   let bestScore = -1;
   for (const room of rooms.values()) {
     if (!room.isPublic) continue;
+    if (room.emptySince) continue; // abandoned room, waiting to be swept
     if (room.participants.size >= MAX_PARTICIPANTS) continue;
     const rl = norm(room.language);
     const rc = norm(room.country);
@@ -120,6 +142,7 @@ app.get('/api/rooms', (req, res) => {
   const list = [];
   for (const room of rooms.values()) {
     if (!room.isPublic) continue;
+    if (room.emptySince) continue; // abandoned room, waiting to be swept
     if (norm(language) && norm(room.language) !== norm(language)) continue;
     if (norm(country) && norm(room.country) !== norm(country)) continue;
     if (norm(q)) {
@@ -194,14 +217,14 @@ app.post('/api/ai/chat', async (req, res) => {
 io.on('connection', (socket) => {
   let joinedRoomId = null;
 
-  const leaveCurrentRoom = (keepRoomId) => {
+  const leaveCurrentRoom = () => {
     if (!joinedRoomId) return;
     const room = rooms.get(joinedRoomId);
     if (room) {
       room.participants.delete(socket.id);
       socket.to(joinedRoomId).emit('peer-left', { id: socket.id });
-      // Keep the room alive when the same socket is about to rejoin it
-      if (room.participants.size === 0 && joinedRoomId !== keepRoomId) rooms.delete(joinedRoomId);
+      // Keep the room alive (for reconnects) instead of deleting it outright
+      markRoomEmpty(room);
     }
     // Leave the Socket.IO room too, otherwise this socket keeps receiving
     // events (peer-joined, chat, relay) from the room it just left.
@@ -249,7 +272,7 @@ io.on('connection', (socket) => {
     const alreadyInRoom = joinedRoomId === roomId && room.participants.has(socket.id);
     const clientId = String(p.clientId || '').slice(0, 64);
     if (!alreadyInRoom) {
-      leaveCurrentRoom(roomId);
+      leaveCurrentRoom();
       // A reconnect can arrive before the old socket's disconnect is detected.
       // Replace the stale session from the same browser tab instead of
       // counting it as an extra participant.
@@ -270,6 +293,7 @@ io.on('connection', (socket) => {
     }
     const profile = sanitizeProfile(p.profile);
     room.participants.set(socket.id, { ...profile, clientId, micOn: true, camOn: true });
+    room.emptySince = null;
     joinedRoomId = roomId;
     if (!alreadyInRoom) socket.join(roomId);
 
