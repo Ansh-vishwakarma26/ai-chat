@@ -22,23 +22,23 @@
   })();
 
   const MAX_PARTICIPANTS = 8;
-  // STUN alone cannot connect peers behind carrier-grade NAT (very common on
-  // mobile data), which showed up as a black "other person" tile. A TURN relay
-  // is required as a fallback.
-  const ICE_SERVERS = [
+  // ICE config comes from the server so optional TURN credentials (dead/unpaid
+  // public relays stall ICE for ~15s) never have to be hard-coded here.
+  let iceServers = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun.cloudflare.com:3478' },
-    {
-      urls: [
-        'turn:openrelay.metered.ca:80',
-        'turn:openrelay.metered.ca:443',
-        'turn:openrelay.metered.ca:443?transport=tcp'
-      ],
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    }
+    { urls: 'stun:stun.cloudflare.com:3478' }
   ];
+  const iceReady = Promise.race([
+    fetch('/api/ice-servers')
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.iceServers) && d.iceServers.length) iceServers = d.iceServers;
+      })
+      .catch(() => {}),
+    // Never let a slow config request delay joining
+    new Promise((resolve) => setTimeout(resolve, 3000))
+  ]);
 
   // Start with WebSocket (avoids the slow polling -> upgrade handshake behind
   // proxies) and fall back to polling only if WebSocket is unavailable.
@@ -304,7 +304,8 @@
       const muteBtn = document.createElement('button');
       muteBtn.textContent = '🔇';
       muteBtn.title = 'Mute this person for you only';
-      muteBtn.addEventListener('click', () => toggleMuteForMe(id, muteBtn));
+      tile.dataset.peerId = id;
+      muteBtn.addEventListener('click', () => toggleMuteForMe(tile.dataset.peerId, muteBtn));
       actions.appendChild(muteBtn);
       tile.appendChild(actions);
     }
@@ -314,6 +315,10 @@
   }
 
   function removeTile(id) {
+    clearPendingRemoval(id);
+    for (const [cid, pid] of clientIdToPeer) {
+      if (pid === id) clientIdToPeer.delete(cid);
+    }
     const pc = pcs.get(id);
     if (pc) {
       pc.close();
@@ -470,8 +475,8 @@
   function createPeer(peerId) {
     if (pcs.has(peerId)) return pcs.get(peerId);
     const pc = new RTCPeerConnection({
-      iceServers: ICE_SERVERS,
-      iceCandidatePoolSize: 4,
+      iceServers,
+      iceCandidatePoolSize: 0,
       bundlePolicy: 'max-bundle'
     });
     pcs.set(peerId, pc);
@@ -557,22 +562,36 @@
 
   /* ================= Room lifecycle: Fast & Non-Blocking ================= */
   // Socket.IO reconnects (network blip, phone backgrounded, tab restored) give
-  // us a brand-new socket id. Without this cleanup every reconnect would add
-  // another copy of my own video tile and stale peer tiles.
-  function resetPeerState() {
-    const grid = $('video-grid');
-    if (grid) {
-      Array.from(grid.children).forEach((tile) => {
-        if (tile.id !== 'tile-' + LOCAL_ID) tile.remove();
-      });
-    }
+  // us a brand-new socket id. We close stale peer connections but KEEP the peer
+  // tiles on screen so the member videos do not disappear and come back.
+  const pendingRemoval = new Map(); // peerId -> timeout id
+  const clientIdToPeer = new Map(); // clientId -> current peerId
+
+  function clearPendingRemoval(peerId) {
+    const t = pendingRemoval.get(peerId);
+    if (t) { clearTimeout(t); pendingRemoval.delete(peerId); }
+  }
+
+  function resetPeerConnections() {
     pcs.forEach((pc) => { try { pc.close(); } catch (_) {} });
     pcs.clear();
     remoteStreams.clear();
-    mutedByMe.clear();
-    peerMeta.clear();
     pendingIce.clear();
-    updateGridCount();
+    peerMeta.clear();
+  }
+
+  function reconcilePeers(peers) {
+    const keep = new Set(peers.map((p) => p.id));
+    clientIdToPeer.clear();
+    for (const p of peers) {
+      clearPendingRemoval(p.id);
+      if (p.clientId) clientIdToPeer.set(p.clientId, p.id);
+    }
+    // Drop tiles for people who really left while we were disconnected
+    document.querySelectorAll('#video-grid .tile').forEach((tile) => {
+      const id = tile.id.slice('tile-'.length);
+      if (id !== LOCAL_ID && !keep.has(id)) removeTile(id);
+    });
   }
 
   let joinedOnce = false;
@@ -589,7 +608,11 @@
     // getUserMedia resolves produced connections with no media (black remote
     // tiles in both directions).
     await initMedia();
+    await iceReady;
     if (leaving) return;
+
+    // Keep the tiles that are already on screen; only drop people who left
+    reconcilePeers(res.peers);
 
     // Populate peers
     for (const p of res.peers) {
@@ -665,8 +688,8 @@
     myId = socket.id;
     clearReconnectStatus();
 
-    // Drop everything from the previous connection before rejoining
-    resetPeerState();
+    // Rebuild connections but keep the on-screen tiles (no flicker)
+    resetPeerConnections();
 
     // Join room via socket immediately in parallel with camera warm-up
     joinRoom();
@@ -685,17 +708,48 @@
     }
   });
 
+  // Reuse an existing tile when the same browser tab rejoins with a new socket
+  // id (reconnect), so the member's video does not vanish and reappear.
+  function adoptTile(oldId, newId) {
+    const tile = document.getElementById('tile-' + oldId);
+    if (!tile || document.getElementById('tile-' + newId)) return;
+    clearPendingRemoval(oldId);
+
+    tile.id = 'tile-' + newId;
+    tile.dataset.peerId = newId;
+    const video = document.getElementById('video-' + oldId);
+    if (video) video.id = 'video-' + newId;
+
+    const stream = remoteStreams.get(oldId);
+    if (stream) { remoteStreams.set(newId, stream); remoteStreams.delete(oldId); }
+    const meta = peerMeta.get(oldId);
+    if (meta) { peerMeta.delete(oldId); peerMeta.set(newId, meta); }
+    if (mutedByMe.has(oldId)) { mutedByMe.delete(oldId); mutedByMe.add(newId); }
+    const pc = pcs.get(oldId);
+    if (pc) { try { pc.close(); } catch (_) {} pcs.delete(oldId); }
+    pendingIce.delete(oldId);
+  }
+
   socket.on('peer-joined', (p) => {
+    const prevId = p.clientId ? clientIdToPeer.get(p.clientId) : null;
+    const adopted = prevId && prevId !== p.id;
+    if (adopted) adoptTile(prevId, p.id);
+    if (p.clientId) clientIdToPeer.set(p.clientId, p.id);
+
     peerMeta.set(p.id, p);
     addTile(p.id, p.name, p.language, false, p.avatar);
     setTileCam(p.id, p.camOn !== false);
+    if (adopted) makeOffer(p.id);
     addMessage($('chat-messages'), { text: `${p.name} joined the room.`, cls: 'system' });
   });
 
   socket.on('peer-left', ({ id }) => {
     const meta = peerMeta.get(id);
     addMessage($('chat-messages'), { text: `${meta ? meta.name : 'A participant'} left the room.`, cls: 'system' });
-    removeTile(id);
+    // Hold the tile briefly: a reconnect replaces the socket id and the same
+    // person immediately rejoins, which should not blink their video.
+    clearPendingRemoval(id);
+    pendingRemoval.set(id, setTimeout(() => removeTile(id), 2000));
   });
 
   socket.on('peer-state', ({ id, micOn: m, camOn: c }) => {

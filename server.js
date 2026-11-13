@@ -112,6 +112,42 @@ function sanitizeProfile(profile) {
   };
 }
 
+/* Shared by the socket and HTTP room-creation paths. */
+function createRoom({ profile, name, isPublic }) {
+  const p = sanitizeProfile(profile);
+  const id = generateRoomId();
+  const room = {
+    id,
+    name: String(name || `${p.name}'s room`).slice(0, 50),
+    language: p.language,
+    country: p.country,
+    isPublic: isPublic !== false,
+    createdAt: Date.now(),
+    participants: new Map()
+  };
+  rooms.set(id, room);
+  return room;
+}
+
+/* WebRTC ICE configuration. TURN is optional: set TURN_URLS, TURN_USERNAME and
+ * TURN_CREDENTIAL in the environment to enable relaying through NAT. */
+const TURN_URLS = String(process.env.TURN_URLS || '')
+  .split(',')
+  .map((u) => u.trim())
+  .filter(Boolean);
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' }
+];
+if (TURN_URLS.length && process.env.TURN_USERNAME) {
+  ICE_SERVERS.push({
+    urls: TURN_URLS,
+    username: String(process.env.TURN_USERNAME),
+    credential: String(process.env.TURN_CREDENTIAL || '')
+  });
+}
+
 /* Find a public room with an open seat, preferring language/country matches.
  * Returns { roomId, roomName } or { roomId: null }. */
 app.get('/api/random-room', (req, res) => {
@@ -166,6 +202,28 @@ app.get('/api/rooms/:id', (req, res) => {
   const room = rooms.get(String(req.params.id).toUpperCase());
   if (!room) return res.status(404).json({ error: 'Room not found' });
   res.json({ room: publicRoomInfo(room) });
+});
+
+/* Create a room over plain HTTP. The home page uses this instead of a socket
+ * round-trip so room creation cannot hang while the WebSocket is reconnecting. */
+app.post('/api/rooms', (req, res) => {
+  try {
+    const body = req.body || {};
+    const room = createRoom({
+      profile: body.profile,
+      name: body.name,
+      isPublic: body.isPublic
+    });
+    res.json({ ok: true, roomId: room.id, room: publicRoomInfo(room) });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: String((err && err.message) || err) });
+  }
+});
+
+/* ICE servers for WebRTC. TURN credentials are optional and read from env so
+ * they never have to live in the client bundle. */
+app.get('/api/ice-servers', (req, res) => {
+  res.json({ iceServers: ICE_SERVERS });
 });
 
 app.delete('/api/rooms/:id', (req, res) => {
@@ -241,19 +299,8 @@ io.on('connection', (socket) => {
 
   socket.on('create-room', (payload, cb) => {
     const p = payload || {};
-    const profile = sanitizeProfile(p.profile);
-    const id = generateRoomId();
-    const room = {
-      id,
-      name: String(p.name || `${profile.name}'s room`).slice(0, 50),
-      language: profile.language,
-      country: profile.country,
-      isPublic: p.isPublic !== false,
-      createdAt: Date.now(),
-      participants: new Map()
-    };
-    rooms.set(id, room);
-    if (typeof cb === 'function') cb({ ok: true, roomId: id });
+    const room = createRoom({ profile: p.profile, name: p.name, isPublic: p.isPublic });
+    if (typeof cb === 'function') cb({ ok: true, roomId: room.id });
   });
 
   socket.on('delete-room', (payload, cb) => {
@@ -307,11 +354,11 @@ io.on('connection', (socket) => {
     const peers = [];
     for (const [id, meta] of room.participants) {
       if (id === socket.id) continue;
-      peers.push({ id, name: meta.name, avatar: meta.avatar, language: meta.language, country: meta.country, micOn: meta.micOn, camOn: meta.camOn });
+      peers.push({ id, clientId: meta.clientId, name: meta.name, avatar: meta.avatar, language: meta.language, country: meta.country, micOn: meta.micOn, camOn: meta.camOn });
     }
     if (typeof cb === 'function') cb({ ok: true, roomId, room: publicRoomInfo(room), you: { id: socket.id, ...profile }, peers });
 
-    socket.to(roomId).emit('peer-joined', { id: socket.id, ...profile });
+    socket.to(roomId).emit('peer-joined', { id: socket.id, clientId, ...profile });
   });
 
   socket.on('quick-match', (payload, cb) => {

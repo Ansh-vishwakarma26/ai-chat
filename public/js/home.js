@@ -97,42 +97,66 @@
   /* ── Create room ── */
   let createdRoomId = null;
 
-  $('btn-create').addEventListener('click', () => {
-    $('btn-create').disabled = true;
-    $('btn-create').textContent = 'Creating room…';
+  $('btn-create').addEventListener('click', async () => {
+    const btn = $('btn-create');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = 'Creating room…';
 
-    socket.emit('create-room', {
-      profile,
-      name:     $('create-name').value.trim() || `${profile.name}'s room`,
-      isPublic: $('create-public').checked
-    }, res => {
-      $('btn-create').disabled = false;
-      $('btn-create').textContent = 'Create room & get ID';
+    const resetBtn = () => {
+      btn.disabled = false;
+      btn.textContent = 'Create room & get ID';
+    };
 
-      if (!res || !res.ok) {
-        toast('Could not create room.');
-        return;
-      }
-      createdRoomId = res.roomId;
+    // Create over HTTP with a timeout. A socket ack could hang forever while the
+    // socket reconnects, which left the button stuck until a page refresh.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    let res;
+    try {
+      const r = await fetch('/api/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile,
+          name: $('create-name').value.trim() || `${profile.name}'s room`,
+          isPublic: $('create-public').checked
+        }),
+        signal: controller.signal
+      });
+      res = await r.json();
+    } catch {
+      res = null;
+    } finally {
+      clearTimeout(timer);
+    }
 
-      const idEl      = $('created-id');
-      const actionsEl = $('created-actions');
+    if (!res || !res.ok) {
+      resetBtn();
+      toast('Could not create room — check your connection and try again.');
+      return;
+    }
 
-      idEl.textContent = res.roomId;
-      idEl.title = 'Click to copy room ID';
-      idEl.classList.remove('hidden');
-      idEl.onclick = () => {
-        navigator.clipboard.writeText(res.roomId).catch(() => {});
-        toast('Room ID copied to clipboard!');
-      };
+    resetBtn();
+    createdRoomId = res.roomId;
 
-      // Show action buttons
-      actionsEl.classList.remove('hidden');
+    const idEl = $('created-id');
+    const actionsEl = $('created-actions');
 
-      // Hide old create button
-      $('btn-create').classList.add('hidden');
-      toast('Room created! ID: ' + res.roomId);
-    });
+    idEl.textContent = res.roomId;
+    idEl.title = 'Click to copy room ID';
+    idEl.classList.remove('hidden');
+    idEl.onclick = () => {
+      navigator.clipboard.writeText(res.roomId).catch(() => {});
+      toast('Room ID copied to clipboard!');
+    };
+
+    // Show action buttons
+    actionsEl.classList.remove('hidden');
+
+    // Hide old create button
+    btn.classList.add('hidden');
+    toast('Room created! ID: ' + res.roomId);
   });
 
   $('btn-enter-room') && $('btn-enter-room').addEventListener('click', () => {
