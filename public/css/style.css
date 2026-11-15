@@ -795,13 +795,12 @@ select option {
 .tile video {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center 25%;
+  object-fit: contain;
   background: #000;
   display: block;
 }
-.tile.contain-mode video {
-  object-fit: contain !important;
+.tile.cover-mode video {
+  object-fit: cover !important;
 }
 
 .tile .label {
@@ -1246,8 +1245,12 @@ select option {
     inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    object-position: center 25%; /* Keeps head and face in view instead of cutting off forehead */
+    object-fit: contain;
+    background: #000;
+    display: block;
+  }
+  .tile.cover-mode video {
+    object-fit: cover !important;
   }
   .tile .label {
     position: absolute;

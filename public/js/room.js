@@ -310,13 +310,13 @@
       tile.appendChild(actions);
     }
 
-    // Double-click/double-tap tile to toggle between filled (cropped) and full frame (contained)
+    // Double-click/double-tap tile to toggle between full frame (contain) and filled (cover)
     let lastTap = 0;
     tile.addEventListener('click', (e) => {
       if (e.target.closest('.actions') || e.target.closest('.label')) return;
       const now = Date.now();
       if (now - lastTap < 300) {
-        tile.classList.toggle('contain-mode');
+        tile.classList.toggle('cover-mode');
         lastTap = 0;
       } else {
         lastTap = now;
@@ -324,7 +324,7 @@
     });
     tile.addEventListener('dblclick', (e) => {
       if (e.target.closest('.actions') || e.target.closest('.label')) return;
-      tile.classList.toggle('contain-mode');
+      tile.classList.toggle('cover-mode');
     });
 
     $('video-grid').appendChild(tile);
