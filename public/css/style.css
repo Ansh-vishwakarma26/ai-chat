@@ -686,13 +686,7 @@ select option {
 .room-body {
   display: flex;
   flex-direction: column;
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  width: 100dvw;
   height: 100vh;
-  height: 100dvh;
-  max-height: 100dvh;
   overflow: hidden;
   background: var(--bg);
 }
@@ -1042,6 +1036,32 @@ select option {
    Room Responsive — Mobile & Tablet (< 768px)
    ============================================================ */
 @media (max-width: 768px) {
+  /* Lock mobile room viewport to prevent any outer page scrolling */
+  html, body.room-body {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .room-body {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    background: var(--bg);
+  }
+
   /* 2-row clean mobile topbar: brand + actions on top, room meta on bottom — zero overlapping! */
   .room-topbar {
     display: grid;
@@ -1210,18 +1230,21 @@ select option {
     flex-shrink: 0;
   }
 
-  /* Room layout: reserve bottom space for the fixed controls bar so video is NEVER covered */
+  /* Room layout: takes the exact remaining space between topbar and controls, zero page scroll */
   .room-layout {
     flex: 1 1 0;
     min-height: 0;
     min-width: 0;
+    width: 100%;
+    height: 100%;
     display: flex;
     position: relative;
     overflow: hidden;
-    margin-bottom: 64px; /* Matches fixed controls bar height */
+    margin: 0;
+    padding: 0;
   }
 
-  /* Video Grid mobile sizing & layout */
+  /* Video Grid: fills available space completely, fits all participants simultaneously */
   .video-grid {
     flex: 1 1 0;
     min-height: 0;
@@ -1231,6 +1254,8 @@ select option {
     gap: 6px;
     padding: 6px;
     overflow: hidden;
+    box-sizing: border-box;
+    display: grid;
   }
   .tile {
     position: relative;
@@ -1240,6 +1265,8 @@ select option {
     height: 100%;
     border-radius: 10px;
     overflow: hidden;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
   }
   .tile video {
     position: absolute;
@@ -1248,6 +1275,11 @@ select option {
     height: 100%;
     object-fit: cover;
     object-position: center 25%; /* Keeps head and face in view instead of cutting off forehead */
+    display: block;
+    background: #000;
+  }
+  .tile.contain-mode video {
+    object-fit: contain !important;
   }
   .tile .label {
     position: absolute;
@@ -1260,8 +1292,15 @@ select option {
     z-index: 2;
   }
   .tile .label .lang { font-size: 0.65rem; }
+  .tile .actions {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    z-index: 2;
+    opacity: 1; /* Visible on mobile touch screens */
+  }
 
-  /* Stack layouts for portrait mobile */
+  /* Grid layouts for mobile portrait: all participants fit on screen simultaneously */
   .video-grid[data-count="1"] {
     grid-template-columns: 1fr;
     grid-template-rows: 1fr;
@@ -1271,40 +1310,71 @@ select option {
     width: 100%;
     height: 100%;
   }
+
+  /* 2 participants: exactly 50% height each, both completely on screen with zero cutoff */
   .video-grid[data-count="2"] {
     grid-template-columns: 1fr;
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-  }
-  .video-grid[data-count="3"],
-  .video-grid[data-count="4"] {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-  }
-  .video-grid[data-count="5"],
-  .video-grid[data-count="6"] {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(3, minmax(0, 1fr));
-  }
-  .video-grid[data-count="7"],
-  .video-grid[data-count="8"] {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(4, minmax(0, 1fr));
+    grid-template-rows: 1fr 1fr;
   }
 
-  /* Controls bar: fixed at viewport bottom so mic/cam/mute buttons are ALWAYS visible */
+  /* 3 participants: 2 top, 1 bottom spanning full width */
+  .video-grid[data-count="3"] {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+  .video-grid[data-count="3"] .tile:last-child {
+    grid-column: span 2;
+  }
+
+  /* 4 participants: clean 2x2 grid */
+  .video-grid[data-count="4"] {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+
+  /* 5 participants: 2 top, 2 middle, 1 bottom spanning full width */
+  .video-grid[data-count="5"] {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+  }
+  .video-grid[data-count="5"] .tile:last-child {
+    grid-column: span 2;
+  }
+
+  /* 6 participants: 2x3 grid */
+  .video-grid[data-count="6"] {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+  }
+
+  /* 7 participants: 2x4 grid with last spanning full width */
+  .video-grid[data-count="7"] {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(4, 1fr);
+  }
+  .video-grid[data-count="7"] .tile:last-child {
+    grid-column: span 2;
+  }
+
+  /* 8 participants: 2x4 grid */
+  .video-grid[data-count="8"] {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(4, 1fr);
+  }
+
+  /* Controls bar: stays in normal flex flow at bottom of .room-body */
   .controls {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 64px;
-    z-index: 100;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    height: 58px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 8px 12px;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom, 8px));
+    padding: 6px 12px;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom, 6px));
     background: rgba(9, 9, 11, 0.98);
     border-top: 1px solid var(--border);
     backdrop-filter: blur(16px);
@@ -1316,7 +1386,7 @@ select option {
   .controls .btn.control {
     flex: 1 1 0;
     min-width: 0;
-    height: 44px;
+    height: 42px;
     padding: 0 8px;
     font-size: 0.82rem;
     font-weight: 500;
@@ -1336,6 +1406,27 @@ select option {
     left: 12px;
     right: 12px;
     align-items: center;
+  }
+}
+
+/* Landscape mobile optimization */
+@media (max-width: 900px) and (orientation: landscape) {
+  .controls {
+    height: 48px;
+    padding: 4px 10px;
+  }
+  .controls .btn.control {
+    height: 36px;
+    font-size: 0.75rem;
+  }
+  .video-grid[data-count="2"] {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+  }
+  .video-grid[data-count="3"],
+  .video-grid[data-count="4"] {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
   }
 }
 
