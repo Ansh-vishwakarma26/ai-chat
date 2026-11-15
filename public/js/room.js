@@ -420,7 +420,7 @@
       const btn = document.querySelector('#tile-' + id + ' .actions button');
       if (btn) btn.classList.toggle('muted-for-me', allOthersMuted);
     }
-    $('mute-all-btn').textContent = allOthersMuted ? '🔊 Unmute all others' : '🔇 Mute all others';
+    $('mute-all-btn').textContent = allOthersMuted ? '🔊 Unmute all' : '🔇 Mute all';
     toast(allOthersMuted ? 'All other participants muted for you.' : 'All participants unmuted for you.');
   });
 
