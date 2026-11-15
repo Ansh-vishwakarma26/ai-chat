@@ -163,7 +163,7 @@
     const msgs = $('chat-messages');
     if (msgs) msgs.scrollTop = msgs.scrollHeight;
     const inp = $('chat-input');
-    if (inp) inp.focus();
+    if (inp && window.innerWidth > 768) inp.focus();
   }
 
   function escapeHtml(s) {
@@ -309,6 +309,23 @@
       actions.appendChild(muteBtn);
       tile.appendChild(actions);
     }
+
+    // Double-click/double-tap tile to toggle between filled (cropped) and full frame (contained)
+    let lastTap = 0;
+    tile.addEventListener('click', (e) => {
+      if (e.target.closest('.actions') || e.target.closest('.label')) return;
+      const now = Date.now();
+      if (now - lastTap < 300) {
+        tile.classList.toggle('contain-mode');
+        lastTap = 0;
+      } else {
+        lastTap = now;
+      }
+    });
+    tile.addEventListener('dblclick', (e) => {
+      if (e.target.closest('.actions') || e.target.closest('.label')) return;
+      tile.classList.toggle('contain-mode');
+    });
 
     $('video-grid').appendChild(tile);
     updateGridCount();

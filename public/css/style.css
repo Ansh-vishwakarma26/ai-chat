@@ -686,11 +686,13 @@ select option {
 .room-body {
   display: flex;
   flex-direction: column;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  width: 100dvw;
   height: 100vh;
-  /* svh (not dvh) so the layout never grows under the mobile browser toolbar;
-     this keeps the mic/cam/mute controls on screen instead of below the fold */
-  height: 100svh;
-  max-height: 100svh;
+  height: 100dvh;
+  max-height: 100dvh;
   overflow: hidden;
   background: var(--bg);
 }
@@ -790,7 +792,17 @@ select option {
 }
 .tile:hover { border-color: #3f3f46; }
 
-.tile video { width: 100%; height: 100%; object-fit: cover; background: #000; display: block; }
+.tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 25%;
+  background: #000;
+  display: block;
+}
+.tile.contain-mode video {
+  object-fit: contain !important;
+}
 
 .tile .label {
   position: absolute;
@@ -950,39 +962,13 @@ select option {
   gap: 10px;
   padding: 12px 20px;
   padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  background: rgba(9, 9, 11, 0.9);
+  background: rgba(9, 9, 11, 0.95);
   border-top: 1px solid var(--border);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   flex-wrap: wrap;
   flex-shrink: 0;
-}
-
-/* Mobile: fix controls at bottom so mic/cam/mute buttons are always reachable */
-@media (max-width: 760px) {
-  .controls {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 50;
-    padding: 10px 12px;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    gap: 8px;
-    border-top: 1px solid var(--border);
-    flex-wrap: nowrap;
-  }
-  .controls .hint { display: none; }
-  .controls .btn.control {
-    flex: 1 1 0;
-    min-width: 0;
-    padding: 10px 6px;
-    font-size: 0.8rem;
-    gap: 4px;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-  .controls .btn.control svg { width: 16px; height: 16px; flex-shrink: 0; }
+  width: 100%;
 }
 
 /* ============================================================
@@ -1010,7 +996,7 @@ select option {
 /* ============================================================
    Responsive — Global & Login
    ============================================================ */
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   /* Global form elements: larger touch targets, readable text */
   input:not([type="checkbox"]):not([type="radio"]), select, textarea {
     padding: 14px 16px;
@@ -1034,87 +1020,290 @@ select option {
   .field-label { font-size: 0.875rem; margin-bottom: 6px; display: block; }
   .input-icon { padding: 0 14px; }
 
-  /* Login page specific overrides */
-  .login-card-inner { padding: 20px 16px; border-radius: 16px; }
-  .form-heading h1 { font-size: 1.35rem; }
-  .form-heading p { font-size: 0.85rem; }
-  .step-track { margin-bottom: 20px; }
-  .field-group { margin-bottom: 14px; }
-  .field-label { font-size: 0.875rem; margin-bottom: 6px; display: block; }
-  .step-track { margin-bottom: 20px; }
-  .step-panel { gap: 14px; }
-  .form-heading { margin-bottom: 16px; }
-  .step-track { margin-bottom: 16px; }
-  .avatar-grid { gap: 8px; }
-  .avatar-btn { border-radius: 12px; }
-  .step-nav { gap: 8px; }
-  .step-panel { gap: 14px; }
-  .form-heading { margin-bottom: 16px; }
-  .step-track { margin-bottom: 16px; }
-  .btn.wide { width: 100%; }
-
-  /* Input icons */
-  .input-icon { padding: 0 14px; }
-
-  /* Select arrow */
-  select {
-    background-position: right 16px center;
-    padding-right: 44px;
-  }
-}
-
-/* Room responsive */
-@media (max-width: 760px) {
-  .side-panel {
-    position: absolute;
-    right: 0; top: 0; bottom: 0;
-    z-index: 10;
-    width: min(320px, 90vw);
-  }
-  .video-grid[data-count="7"],
-  .video-grid[data-count="8"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); }
-  .video-grid { gap: 6px; padding: 6px; }
-  .video-grid[data-count="1"] .tile { max-width: none; }
-
-/* Phone portrait: stack tiles instead of squeezing tall columns side by side,
-     which produced giant cropped faces and pushed the controls off screen */
-  .video-grid[data-count="2"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); }
-  .video-grid[data-count="3"],
-  .video-grid[data-count="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
-  .video-grid[data-count="5"],
-  .video-grid[data-count="6"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); }
-  .video-grid[data-count="7"],
-  .video-grid[data-count="8"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); }
+  /* Login & Landing page responsive */
   .topbar { padding: 10px 16px; }
   .landing { padding: 24px 16px 60px; }
   .login-card { padding: 24px 20px; }
   .cards { grid-template-columns: 1fr; }
+  .login-card-inner { padding: 20px 16px; border-radius: 16px; }
+  .form-heading h1 { font-size: 1.35rem; }
+  .form-heading p { font-size: 0.85rem; }
+  .field-group { margin-bottom: 14px; }
+  .step-track { margin-bottom: 16px; }
+  .step-panel { gap: 14px; }
+  .form-heading { margin-bottom: 16px; }
+  .avatar-grid { gap: 8px; }
+  .avatar-btn { border-radius: 12px; }
+  .step-nav { gap: 8px; }
+  .btn.wide { width: 100%; }
+}
 
-  /* Room: keep the top bar and the controls inside a phone viewport */
-  .room-topbar { padding: 8px 12px; flex-wrap: wrap; row-gap: 6px; }
-  .room-title-text { max-width: 110px; }
-  .room-code { padding: 3px 8px; letter-spacing: 2px; font-size: 0.8rem; }
-  .count { font-size: 0.75rem; }
-  .side-toggles { gap: 4px; margin-left: auto; }
-  .side-toggles .btn.small { padding: 5px 8px; font-size: 0.75rem; }
-  .tile .label { top: 6px; left: 6px; padding: 3px 8px; font-size: 0.72rem; gap: 5px; }
+/* ============================================================
+   Room Responsive — Mobile & Tablet (< 768px)
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Compact single-row topbar */
+  .room-topbar {
+    padding: 8px 12px;
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: nowrap;
+    min-height: 48px;
+    max-height: 52px;
+    border-bottom: 1px solid var(--border);
+  }
+  .room-topbar .brand {
+    font-size: 0.95rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .room-topbar .brand-logo { font-size: 1.1rem; }
+  .room-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+  .room-title-text {
+    max-width: 95px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .room-code {
+    padding: 3px 6px;
+    letter-spacing: 1px;
+    font-size: 0.72rem;
+    flex-shrink: 0;
+  }
+  .count {
+    font-size: 0.7rem;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .side-toggles {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+  .side-toggles .btn.small {
+    padding: 6px 8px;
+    font-size: 0.75rem;
+    gap: 4px;
+    border-radius: 8px;
+  }
+
+  /* Full-screen dedicated mobile overlays for Chat & AI Tutor */
+  .side-panel {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    width: 100dvw;
+    height: 100vh;
+    height: 100dvh;
+    max-width: 100%;
+    z-index: 200;
+    background: #090a0f;
+    border-left: none;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    animation: mobileDrawerUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .side-panel .panel-head {
+    padding: 14px 16px;
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-elevated);
+    flex-shrink: 0;
+  }
+  .side-panel .panel-head h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .side-panel .close-panel {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--card-hover);
+    border: 1px solid var(--border);
+    font-size: 1rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0;
+  }
+  .side-panel .close-panel:hover {
+    color: var(--text);
+    background: #3f3f46;
+  }
+
+  .side-panel .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 14px;
+    -webkit-overflow-scrolling: touch;
+    gap: 12px;
+  }
+
+  .side-panel .chat-form {
+    padding: 10px 14px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 12px));
+    background: var(--bg-elevated);
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .side-panel .chat-form input {
+    flex: 1;
+    font-size: 16px; /* Prevents unwanted iOS/Android viewport zoom */
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .side-panel .chat-form .btn {
+    height: 44px;
+    width: 44px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    flex-shrink: 0;
+  }
+
+  /* Video Grid mobile sizing & layout */
+  .video-grid {
+    flex: 1 1 0;
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
+    height: 100%;
+    gap: 6px;
+    padding: 6px;
+    overflow: hidden;
+  }
+  .tile {
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .tile video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 25%; /* Keeps head and face in view instead of cutting off forehead */
+  }
+  .tile .label {
+    top: 6px;
+    left: 6px;
+    padding: 3px 7px;
+    font-size: 0.72rem;
+    gap: 4px;
+    border-radius: 6px;
+  }
   .tile .label .lang { font-size: 0.65rem; }
 
-  /* Add bottom padding so video tiles aren't hidden behind fixed controls */
-  .video-grid {
-    padding-bottom: 90px;
+  /* Stack layouts for portrait mobile */
+  .video-grid[data-count="1"] {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
   }
-}
+  .video-grid[data-count="1"] .tile {
+    max-width: none;
+    width: 100%;
+    height: 100%;
+  }
+  .video-grid[data-count="2"] {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+  .video-grid[data-count="3"],
+  .video-grid[data-count="4"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+  .video-grid[data-count="5"],
+  .video-grid[data-count="6"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+  }
+  .video-grid[data-count="7"],
+  .video-grid[data-count="8"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(4, minmax(0, 1fr));
+  }
+
+  /* Controls bar: stays in normal flex flow at bottom, no overlap, no cutting off */
+  .controls {
+    position: relative;
+    width: 100%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 8px));
+    background: rgba(9, 9, 11, 0.95);
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    z-index: 50;
+    flex-wrap: nowrap;
+  }
+  .controls .hint { display: none; }
   .controls .btn.control {
     flex: 1 1 0;
     min-width: 0;
-    padding: 8px 4px;
-    font-size: 0.75rem;
-    gap: 4px;
+    padding: 10px 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    gap: 6px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
     overflow: hidden;
   }
-  .controls .btn.control svg { width: 14px; height: 14px; flex-shrink: 0; }
-  .controls .hint { display: none; }
+  .controls .btn.control svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  /* Notification toasts centered on mobile */
+  .chat-notify-container {
+    top: 56px;
+    left: 12px;
+    right: 12px;
+    align-items: center;
+  }
+}
+
+@keyframes mobileDrawerUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
 }
 
 /* ============================================================

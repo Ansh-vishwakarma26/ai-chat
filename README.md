@@ -27,17 +27,17 @@ npm start
 
 Open http://localhost:3000 → you land on the **login page**, then the **home page**. For cameras to work, serve over `https://` in production (or `localhost` for testing).
 
-## Connect the AI tutor (left empty on purpose)
+## Connect the AI tutor
 
-Open `server.js` and fill in the three constants at the top:
+Create or edit your `.env` file in the project root:
 
-```js
-const AI_API_URL = '';   // TODO: paste your AI chat-completions endpoint URL
-const AI_API_KEY = '';   // TODO: paste your API key
-const AI_MODEL = '';     // TODO: paste the model name (optional)
+```env
+AI_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
+AI_API_KEY=your_api_key_here
+AI_MODEL=gemini-3.8-flash
 ```
 
-Any **OpenAI-compatible** chat-completions endpoint works (OpenAI, Mistral, Groq, OpenRouter, a local LLM proxy, …). Until then, the AI panel replies with a friendly "not configured" message.
+Any **OpenAI-compatible** chat completions endpoint works (Google AI Studio / Gemini API, Groq, Mistral, OpenAI, OpenRouter, or a local LLM). The default lightweight model `gemini-3.8-flash` delivers ultra-fast answers with minimal token consumption. Until configured, the AI panel replies with a friendly guidance message.
 
 ## Tech
 
